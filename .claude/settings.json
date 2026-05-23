@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/yairyatzkan/projects/**)",
+      "Bash(npm create *)",
+      "Bash(npm install *)"
+    ]
+  }
+}
