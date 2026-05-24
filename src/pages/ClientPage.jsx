@@ -130,20 +130,53 @@ function LookupCard({ onFound }) {
 
 // ─── Result ───────────────────────────────────────────────────────────────────
 
-function ResultCard({ client, onBack }) {
-  const { passes, name } = client
-  const { label, color } = statusFor(passes)
-  const c = palette[color]
-
-  // progress: treat 10 as "full", cap at 100 %
-  const pct = Math.min(Math.round((passes / 10) * 100), 100)
+function PassCard({ product_name, remaining }) {
+  const { label, color } = statusFor(remaining)
+  const c   = palette[color]
+  const pct = Math.min(Math.round((remaining / 10) * 100), 100)
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="border border-gray-100 rounded-xl overflow-hidden">
+      <div className="px-4 pt-4 pb-3">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{product_name}</p>
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${c.badge}`}>{label}</span>
+        </div>
+        <div className="flex items-end gap-3">
+          <span className={`text-5xl font-black tabular-nums leading-none ${c.count}`}>
+            {remaining}
+          </span>
+          <p className="text-sm text-gray-400 mb-1">
+            {remaining === 1 ? 'pass remaining' : 'passes remaining'}
+          </p>
+        </div>
+      </div>
+      <div className="px-4 pb-4">
+        <div className={`h-2 rounded-full ${c.track} overflow-hidden`}>
+          <div
+            className={`h-full rounded-full transition-all duration-700 ${c.bar}`}
+            style={{ width: remaining === 0 ? '0%' : `${Math.max(pct, 3)}%` }}
+          />
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-xs text-gray-300">0</span>
+          <span className="text-xs text-gray-300">10+</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ResultCard({ client, onBack }) {
+  const { name, passes } = client
+  const hasWarning = passes.some(p => p.remaining <= 2)
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
       <div className="w-full max-w-sm">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           {/* Header strip */}
-          <div className="bg-gray-50 border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+          <div className="bg-gray-50 border-b border-gray-100 px-6 py-4">
             <button
               onClick={onBack}
               className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors"
@@ -153,50 +186,30 @@ function ResultCard({ client, onBack }) {
               </svg>
               Check another
             </button>
-            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${c.badge}`}>
-              {label}
-            </span>
           </div>
 
-          {/* Body */}
-          <div className="px-6 py-8 text-center">
-            <p className="text-sm font-medium text-gray-400 uppercase tracking-widest mb-1">Welcome back</p>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8">{name}</h2>
-
-            {/* Big pass count */}
-            <div className="mb-2">
-              <span className={`text-8xl font-black tabular-nums leading-none ${c.count}`}>
-                {passes}
-              </span>
-            </div>
-            <p className="text-sm text-gray-400 font-medium mb-8">
-              {passes === 1 ? 'pass remaining' : 'passes remaining'}
-            </p>
-
-            {/* Progress bar */}
-            <div className={`h-3 rounded-full ${c.track} overflow-hidden`}>
-              <div
-                className={`h-full rounded-full transition-all duration-700 ${c.bar}`}
-                style={{ width: passes === 0 ? '0%' : `${Math.max(pct, 4)}%` }}
-              />
-            </div>
-            <div className="flex justify-between mt-2">
-              <span className="text-xs text-gray-300">0</span>
-              <span className="text-xs text-gray-300">10+</span>
-            </div>
+          {/* Name */}
+          <div className="px-6 pt-6 pb-4 text-center">
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-1">Welcome back</p>
+            <h2 className="text-2xl font-bold text-gray-900">{name}</h2>
           </div>
 
-          {/* Footer */}
-          {passes <= 2 && (
-            <div className={`border-t px-6 py-4 text-center ${
-              passes === 0
-                ? 'bg-red-50 border-red-100'
-                : 'bg-amber-50 border-amber-100'
-            }`}>
-              <p className={`text-sm font-medium ${passes === 0 ? 'text-red-700' : 'text-amber-700'}`}>
-                {passes === 0
-                  ? 'Contact your studio to top up your passes.'
-                  : "Heads up — you're almost out. Contact your studio soon."}
+          {/* Product cards */}
+          <div className="px-4 pb-4 space-y-3">
+            {passes.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-6">No passes assigned yet.</p>
+            ) : (
+              passes.map(p => (
+                <PassCard key={p.product_name} product_name={p.product_name} remaining={p.remaining} />
+              ))
+            )}
+          </div>
+
+          {/* Footer warning */}
+          {hasWarning && (
+            <div className="border-t border-amber-100 bg-amber-50 px-6 py-4 text-center">
+              <p className="text-sm font-medium text-amber-700">
+                One or more passes are running low — contact your studio soon.
               </p>
             </div>
           )}

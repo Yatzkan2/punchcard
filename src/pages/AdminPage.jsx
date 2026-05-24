@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import supabase from '../supabase'
-import { getAllClients, addClient as addClientFn, punchClient, updatePasses, removeClient } from '../lib/clients'
+import { getAllClients, addClient as addClientFn, removeClient, incrementEntries } from '../lib/clients'
+import { getProducts, addProduct, removeProduct } from '../lib/products'
+import { upsertPass, removePass } from '../lib/passes'
 
 const UNAMBIGUOUS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 
@@ -120,77 +122,25 @@ function LoginCard() {
 
 // ─── Client row ───────────────────────────────────────────────────────────────
 
-function ClientRow({ client, onUpdate, onRemove }) {
-  const [passes, setPasses]   = useState(client.passes)
-  const [entries, setEntries] = useState(client.entries ?? 0)
-  const [copied, setCopied]   = useState(false)
-  const [busy, setBusy]       = useState(false)
-  const [isEditing, setIsEditing]   = useState(false)
-  const [editValue, setEditValue]   = useState(String(client.passes))
-  const [dialog, setDialog]         = useState(null)  // null | { type }
-  const [rowError, setRowError]     = useState('')
-  const editInputRef = useRef(null)
+function ClientRow({ client, products, onUpdate, onRemove }) {
+  const entries = client.entries ?? 0
+  const [copied, setCopied]       = useState(false)
+  const [busy, setBusy]           = useState(false)
+  const [rowError, setRowError]   = useState('')
+  // dialog: null | { type: 'punch'|'refill'|'adjust'|'removePass'|'removeClient', pass? }
+  const [dialog, setDialog]       = useState(null)
+  const [editingPassId, setEditingPassId] = useState(null)
+  const [editValue, setEditValue] = useState('')
+  const [addProductId, setAddProductId]   = useState('')
+  const [addCount, setAddCount]           = useState(10)
+  const [addingPass, setAddingPass]       = useState(false)
 
-  useEffect(() => {
-    setPasses(client.passes)
-    setEntries(client.entries ?? 0)
-    if (!isEditing) setEditValue(String(client.passes))
-  }, [client.passes, client.entries]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const closeDialog = () => setDialog(null)
-
-  // ── dialog openers ──────────────────────────────────────────────────────────
-
-  function openPunch()  { if (passes > 0) setDialog({ type: 'punch' }) }
-  function openRefill() { setDialog({ type: 'refill' }) }
-  function openAdjust() { setDialog({ type: 'adjust' }) }
-  function openRemove() { setDialog({ type: 'remove' }) }
-
-  // ── confirmed actions ───────────────────────────────────────────────────────
+  const assignedIds     = new Set(client.passes.map(p => p.product_id))
+  const availableForAdd = products.filter(p => !assignedIds.has(p.id))
 
   function showError(e) {
     setRowError(e?.message ?? 'Something went wrong.')
     setTimeout(() => setRowError(''), 4000)
-  }
-
-  async function confirmPunch() {
-    closeDialog()
-    setBusy(true)
-    try { await punchClient(client.id, passes, entries); onUpdate() } catch (e) { showError(e) }
-    setBusy(false)
-  }
-
-  async function confirmRefill() {
-    closeDialog()
-    setBusy(true)
-    try { await updatePasses(client.id, 10); onUpdate() } catch (e) { showError(e) }
-    setBusy(false)
-  }
-
-  async function confirmAdjust() {
-    const val = Math.max(0, parseInt(editValue, 10) || 0)
-    closeDialog()
-    setBusy(true)
-    try { await updatePasses(client.id, val); setIsEditing(false); onUpdate() } catch (e) { showError(e) }
-    setBusy(false)
-  }
-
-  async function confirmRemove() {
-    closeDialog()
-    try { await removeClient(client.id); onRemove() } catch (e) { showError(e) }
-  }
-
-  // ── edit-mode helpers ────────────────────────────────────────────────────────
-
-  function handleStartEdit() {
-    setEditValue(String(passes))
-    setIsEditing(true)
-    setTimeout(() => editInputRef.current?.select(), 0)
-  }
-
-  function handleCancelEdit() {
-    setEditValue(String(passes))
-    setIsEditing(false)
   }
 
   async function handleCopy() {
@@ -199,119 +149,98 @@ function ClientRow({ client, onUpdate, onRemove }) {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  const passColor =
-    passes === 0 ? 'text-red-600' :
-    passes <= 2  ? 'text-amber-500' :
-                   'text-gray-800'
+  // ── Punch ────────────────────────────────────────────────────────────────────
+  async function confirmPunch() {
+    const pass = dialog.pass
+    setDialog(null)
+    setBusy(true)
+    try {
+      await upsertPass(client.id, pass.product_id, Math.max(pass.remaining - 1, 0))
+      await incrementEntries(client.id, entries)
+      onUpdate()
+    } catch (e) { showError(e) }
+    setBusy(false)
+  }
 
-  const adjustVal = Math.max(0, parseInt(editValue, 10) || 0)
+  // ── Refill ───────────────────────────────────────────────────────────────────
+  async function confirmRefill() {
+    const pass = dialog.pass
+    setDialog(null)
+    setBusy(true)
+    try { await upsertPass(client.id, pass.product_id, 10); onUpdate() } catch (e) { showError(e) }
+    setBusy(false)
+  }
+
+  // ── Adjust ───────────────────────────────────────────────────────────────────
+  function startEdit(pass) {
+    setEditingPassId(pass.id)
+    setEditValue(String(pass.remaining))
+  }
+  function cancelEdit() { setEditingPassId(null) }
+
+  async function confirmAdjust() {
+    const pass = dialog.pass
+    const val  = Math.max(0, parseInt(editValue, 10) || 0)
+    setDialog(null)
+    setBusy(true)
+    try { await upsertPass(client.id, pass.product_id, val); setEditingPassId(null); onUpdate() } catch (e) { showError(e) }
+    setBusy(false)
+  }
+
+  // ── Remove pass ──────────────────────────────────────────────────────────────
+  async function confirmRemovePass() {
+    const pass = dialog.pass
+    setDialog(null)
+    try { await removePass(client.id, pass.product_id); onUpdate() } catch (e) { showError(e) }
+  }
+
+  // ── Remove client ────────────────────────────────────────────────────────────
+  async function confirmRemoveClient() {
+    setDialog(null)
+    try { await removeClient(client.id); onRemove() } catch (e) { showError(e) }
+  }
+
+  // ── Add product pass ─────────────────────────────────────────────────────────
+  async function handleAddPass(e) {
+    e.preventDefault()
+    if (!addProductId) return
+    setAddingPass(true)
+    try {
+      await upsertPass(client.id, addProductId, addCount)
+      setAddProductId('')
+      setAddCount(10)
+      onUpdate()
+    } catch (e) { showError(e) }
+    setAddingPass(false)
+  }
+
+  const activePass = dialog?.pass
 
   return (
     <>
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-0 flex-wrap sm:flex-nowrap">
-        {/* Avatar */}
-        <div className="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 font-semibold text-sm flex items-center justify-center shrink-0 select-none">
-          {getInitials(client.name)}
-        </div>
-
-        {/* Name + code */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate leading-tight">{client.name}</p>
-          <button
-            onClick={handleCopy}
-            className="mt-1 inline-flex items-center gap-1 font-mono text-xs bg-gray-100 hover:bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded transition-colors"
-            title="Click to copy"
-          >
-            {client.code}
-            {copied ? (
-              <svg className="w-3 h-3 text-green-500" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/>
-              </svg>
-            ) : (
-              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/>
-                <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/>
-              </svg>
-            )}
-          </button>
-        </div>
-
-        {/* Stats */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="text-center">
-            <p className="text-xs font-semibold text-gray-700 leading-none">{entries}</p>
-            <p className="text-xs text-gray-400 mt-0.5">entries</p>
+      <div className="px-4 py-3 border-b border-gray-100 last:border-0">
+        {/* Client header */}
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 font-semibold text-sm flex items-center justify-center shrink-0 select-none">
+            {getInitials(client.name)}
           </div>
-          <div className="text-center">
-            {isEditing ? (
-              <input
-                ref={editInputRef}
-                type="number"
-                min={0}
-                value={editValue}
-                onChange={e => setEditValue(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') openAdjust(); if (e.key === 'Escape') handleCancelEdit() }}
-                className="w-16 text-center border border-indigo-400 rounded-lg py-1 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            ) : (
-              <>
-                <p className={`text-sm font-bold leading-none ${passColor}`}>{passes}</p>
-                <p className="text-xs text-gray-400 mt-0.5">passes</p>
-              </>
-            )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate leading-tight">{client.name}</p>
+            <button
+              onClick={handleCopy}
+              className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs bg-gray-100 hover:bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded transition-colors"
+              title="Click to copy"
+            >
+              {client.code}
+              {copied
+                ? <svg className="w-3 h-3 text-green-500" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>
+                : <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+              }
+            </button>
           </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-1 shrink-0">
-          {isEditing ? (
-            <>
-              <button
-                onClick={openAdjust}
-                disabled={busy}
-                className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-50"
-              >
-                Save
-              </button>
-              <button
-                onClick={handleCancelEdit}
-                className="text-xs font-medium px-2.5 py-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
-              >
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={openPunch}
-                disabled={passes === 0 || busy}
-                className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
-              >
-                {busy
-                  ? <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                  : <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg>
-                }
-                Punch
-              </button>
-              <button
-                onClick={openRefill}
-                disabled={busy}
-                className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
-              >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/></svg>
-                Refill
-              </button>
-              <button
-                onClick={handleStartEdit}
-                className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-800 transition-colors"
-              >
-                Adjust
-              </button>
-            </>
-          )}
           <button
-            onClick={openRemove}
-            className="text-gray-300 hover:text-red-500 transition-colors p-1.5"
+            onClick={() => setDialog({ type: 'removeClient' })}
+            className="text-gray-300 hover:text-red-500 transition-colors p-1.5 shrink-0"
             title="Remove client"
           >
             <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
@@ -319,27 +248,151 @@ function ClientRow({ client, onUpdate, onRemove }) {
             </svg>
           </button>
         </div>
+
+        {/* Per-product pass rows */}
+        <div className="mt-2 ml-12 space-y-2">
+          {client.passes.length === 0 && (
+            <p className="text-xs text-gray-400">No passes assigned.</p>
+          )}
+          {client.passes.map(pass => {
+            const isEditing  = editingPassId === pass.id
+            const passColor  = pass.remaining === 0 ? 'text-red-600' : pass.remaining <= 2 ? 'text-amber-500' : 'text-gray-800'
+            const adjustVal  = Math.max(0, parseInt(editValue, 10) || 0)
+
+            return (
+              <div key={pass.id} className="flex items-center gap-2 flex-wrap">
+                {/* Product name */}
+                <span className="text-xs text-gray-500 w-20 shrink-0 truncate">{pass.product_name}</span>
+
+                {/* Count — static or editable */}
+                {isEditing ? (
+                  <input
+                    type="number"
+                    min={0}
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') setDialog({ type: 'adjust', pass })
+                      if (e.key === 'Escape') cancelEdit()
+                    }}
+                    autoFocus
+                    className="w-14 text-center border border-indigo-400 rounded-lg py-0.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                ) : (
+                  <span className={`w-14 text-center text-xs font-bold ${passColor}`}>{pass.remaining}</span>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex items-center gap-1">
+                  {isEditing ? (
+                    <>
+                      <button
+                        onClick={() => setDialog({ type: 'adjust', pass })}
+                        disabled={busy}
+                        className="text-xs font-semibold px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-50"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        className="text-xs font-medium px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setDialog({ type: 'punch', pass })}
+                        disabled={pass.remaining === 0 || busy}
+                        className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold px-2 py-1 rounded-lg transition-colors"
+                      >
+                        {busy
+                          ? <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                          : <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg>
+                        }
+                        Punch
+                      </button>
+                      <button
+                        onClick={() => setDialog({ type: 'refill', pass })}
+                        disabled={busy}
+                        className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold px-2 py-1 rounded-lg transition-colors"
+                      >
+                        <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/></svg>
+                        Refill
+                      </button>
+                      <button
+                        onClick={() => startEdit(pass)}
+                        className="text-xs font-medium px-2 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-800 transition-colors"
+                      >
+                        Adjust
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => setDialog({ type: 'removePass', pass })}
+                    className="text-gray-300 hover:text-red-500 transition-colors p-1"
+                    title="Remove pass"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Add product pass */}
+          {availableForAdd.length > 0 && (
+            <form onSubmit={handleAddPass} className="flex items-center gap-2 pt-0.5">
+              <select
+                value={addProductId}
+                onChange={e => setAddProductId(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-md px-2 py-0.5 text-xs text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+              >
+                <option value="">Add product…</option>
+                {availableForAdd.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              {addProductId && (
+                <input
+                  type="number"
+                  min={0}
+                  value={addCount}
+                  onChange={e => setAddCount(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                  className="w-14 text-center border border-gray-200 rounded-md py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                />
+              )}
+              {addProductId && (
+                <button
+                  type="submit"
+                  disabled={addingPass}
+                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50 transition-colors"
+                >
+                  {addingPass ? '…' : 'Add'}
+                </button>
+              )}
+            </form>
+          )}
+        </div>
       </div>
 
       {/* Row error */}
       {rowError && (
-        <div className="px-4 py-2 bg-red-50 border-b border-red-100 flex items-center gap-2">
-          <svg className="w-3.5 h-3.5 text-red-500 shrink-0" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3.5a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3A.75.75 0 0 1 8 4.5zm0 7a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
-          </svg>
+        <div className="px-4 py-2 bg-red-50 border-b border-red-100">
           <p className="text-xs text-red-700">{rowError}</p>
         </div>
       )}
 
       {/* ── Punch confirm ── */}
       {dialog?.type === 'punch' && (
-        <Dialog title="Use 1 pass" confirmLabel="Use Pass" onConfirm={confirmPunch} onCancel={closeDialog}>
-          <p className="text-sm text-gray-500 mb-4">
-            Recording a visit for {client.name}.
-          </p>
+        <Dialog title="Use 1 pass" confirmLabel="Use Pass" onConfirm={confirmPunch} onCancel={() => setDialog(null)}>
+          <p className="text-sm text-gray-500 mb-4">Recording a visit for {client.name} — {activePass?.product_name}.</p>
           <div className="flex items-center justify-center gap-6 py-4 bg-gray-50 rounded-xl">
             <div className="text-center">
-              <p className="text-3xl font-semibold text-gray-300 leading-none">{passes}</p>
+              <p className="text-3xl font-semibold text-gray-300 leading-none">{activePass?.remaining}</p>
               <p className="text-xs text-gray-400 mt-1">now</p>
             </div>
             <svg className="w-5 h-5 text-gray-300" viewBox="0 0 20 20" fill="currentColor">
@@ -347,43 +400,53 @@ function ClientRow({ client, onUpdate, onRemove }) {
             </svg>
             <div className="text-center">
               <p className={`text-3xl font-semibold leading-none ${
-                passes - 1 === 0 ? 'text-red-500' : passes - 1 <= 2 ? 'text-amber-500' : 'text-indigo-600'
-              }`}>{passes - 1}</p>
+                (activePass?.remaining ?? 1) - 1 === 0 ? 'text-red-500' :
+                (activePass?.remaining ?? 1) - 1 <= 2 ? 'text-amber-500' : 'text-indigo-600'
+              }`}>{(activePass?.remaining ?? 1) - 1}</p>
               <p className="text-xs text-gray-400 mt-1">after</p>
             </div>
           </div>
         </Dialog>
       )}
 
-      {/* ── Refill ── */}
+      {/* ── Refill confirm ── */}
       {dialog?.type === 'refill' && (
-        <Dialog title="Refill passes" confirmLabel="Refill to 10" onConfirm={confirmRefill} onCancel={closeDialog}>
+        <Dialog title="Refill passes" confirmLabel="Refill to 10" onConfirm={confirmRefill} onCancel={() => setDialog(null)}>
           <p className="text-sm text-gray-500">
-            Reset {client.name}'s passes back to 10?
+            Reset {client.name}'s {activePass?.product_name} passes back to 10?
           </p>
-          {passes > 0 && (
-            <p className="mt-1.5 text-xs text-gray-400">Current count: {passes}</p>
+          {(activePass?.remaining ?? 0) > 0 && (
+            <p className="mt-1.5 text-xs text-gray-400">Current count: {activePass?.remaining}</p>
           )}
         </Dialog>
       )}
 
       {/* ── Adjust confirm ── */}
       {dialog?.type === 'adjust' && (
-        <Dialog title="Adjust passes" confirmLabel="Confirm" onConfirm={confirmAdjust} onCancel={closeDialog}>
+        <Dialog title="Adjust passes" confirmLabel="Confirm" onConfirm={confirmAdjust} onCancel={() => { setDialog(null); cancelEdit() }}>
           <p className="text-sm text-gray-500">
-            Set {client.name}'s passes to {adjustVal}?
+            Set {client.name}'s {activePass?.product_name} passes to {Math.max(0, parseInt(editValue, 10) || 0)}?
           </p>
-          {adjustVal !== passes && (
+          {Math.max(0, parseInt(editValue, 10) || 0) !== activePass?.remaining && (
             <p className="mt-1.5 text-xs text-gray-400">
-              This changes the count from {passes} to {adjustVal}.
+              This changes the count from {activePass?.remaining} to {Math.max(0, parseInt(editValue, 10) || 0)}.
             </p>
           )}
         </Dialog>
       )}
 
-      {/* ── Remove confirm ── */}
-      {dialog?.type === 'remove' && (
-        <Dialog title="Remove client" confirmLabel="Remove" danger onConfirm={confirmRemove} onCancel={closeDialog}>
+      {/* ── Remove pass confirm ── */}
+      {dialog?.type === 'removePass' && (
+        <Dialog title="Remove passes" confirmLabel="Remove" danger onConfirm={confirmRemovePass} onCancel={() => setDialog(null)}>
+          <p className="text-sm text-gray-500">
+            Remove {activePass?.product_name} passes for {client.name}? This cannot be undone.
+          </p>
+        </Dialog>
+      )}
+
+      {/* ── Remove client confirm ── */}
+      {dialog?.type === 'removeClient' && (
+        <Dialog title="Remove client" confirmLabel="Remove" danger onConfirm={confirmRemoveClient} onCancel={() => setDialog(null)}>
           <p className="text-sm text-gray-500">
             Permanently delete {client.name}? This cannot be undone.
           </p>
@@ -393,14 +456,97 @@ function ClientRow({ client, onUpdate, onRemove }) {
   )
 }
 
+// ─── Products section ─────────────────────────────────────────────────────────
+
+function ProductsSection({ products, onProductsChange }) {
+  const [newName, setNewName]   = useState('')
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState('')
+
+  async function handleAdd(e) {
+    e.preventDefault()
+    const name = newName.trim()
+    if (!name) return
+    setSaving(true)
+    setError('')
+    try {
+      await addProduct(name)
+      setNewName('')
+      onProductsChange()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleRemove(id) {
+    try {
+      await removeProduct(id)
+      onProductsChange()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Products</p>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {products.length === 0 && (
+          <span className="text-xs text-gray-400">No products yet.</span>
+        )}
+        {products.map(p => (
+          <span key={p.id} className="inline-flex items-center gap-1 bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-full">
+            {p.name}
+            <button
+              onClick={() => handleRemove(p.id)}
+              className="text-gray-400 hover:text-red-500 transition-colors ml-0.5"
+              title="Remove"
+            >
+              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
+              </svg>
+            </button>
+          </span>
+        ))}
+      </div>
+      <form onSubmit={handleAdd} className="flex gap-2">
+        <input
+          type="text"
+          placeholder="New product name"
+          value={newName}
+          onChange={e => { setNewName(e.target.value); setError('') }}
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+        />
+        <button
+          type="submit"
+          disabled={saving || !newName.trim()}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? 'Adding…' : 'Add'}
+        </button>
+      </form>
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+    </div>
+  )
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 function Dashboard({ session }) {
   const [clients, setClients] = useState([])
   const [fetchError, setFetchError] = useState('')
+  const [products, setProducts] = useState([])
+
+  async function fetchProducts() {
+    try { setProducts(await getProducts()) } catch { /* non-critical */ }
+  }
+
+  useEffect(() => { fetchProducts() }, [])
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [startPasses, setStartPasses] = useState(10)
+  const [selectedProducts, setSelectedProducts] = useState({}) // { [productId]: count }
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState('')
   const [addErrorFading, setAddErrorFading] = useState(false)
@@ -447,10 +593,15 @@ function Dashboard({ session }) {
     setAdding(true)
     setAddError('')
     try {
-      await addClientFn(fullName, startPasses, generateCode())
+      const newClient = await addClientFn(fullName, generateCode())
+      await Promise.all(
+        Object.entries(selectedProducts).map(([productId, count]) =>
+          upsertPass(newClient.id, productId, count)
+        )
+      )
       setFirstName('')
       setLastName('')
-      setStartPasses(10)
+      setSelectedProducts({})
       await fetchClients()
     } catch (err) {
       setAddError(err.message)
@@ -466,8 +617,8 @@ function Dashboard({ session }) {
     : clients
 
   const totalClients = clients.length
-  const activePasses = clients.filter(c => c.passes > 0).length
-  const needRenewal  = clients.filter(c => c.passes <= 2).length
+  const activePasses = clients.filter(c => c.passes.some(p => p.remaining > 0)).length
+  const needRenewal  = clients.filter(c => c.passes.some(p => p.remaining <= 2)).length
 
   const stats = [
     { label: 'Total clients', value: totalClients },
@@ -507,41 +658,70 @@ function Dashboard({ session }) {
           ))}
         </div>
 
+        {/* Products */}
+        <ProductsSection products={products} onProductsChange={fetchProducts} />
+
         {/* Add client */}
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Add client</p>
-          <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
-              placeholder="First name"
-              value={firstName}
-              onChange={e => setFirstName(e.target.value)}
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              required
-            />
-            <input
-              type="text"
-              placeholder="Last name"
-              value={lastName}
-              onChange={e => setLastName(e.target.value)}
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              required
-            />
-            <input
-              type="number"
-              placeholder="Passes"
-              value={startPasses}
-              min={0}
-              onChange={e => setStartPasses(Math.max(0, parseInt(e.target.value, 10) || 0))}
-              className="w-full sm:w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-            <button
-              type="submit"
-              disabled={adding}
-              className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {adding ? 'Adding…' : 'Add'}
-            </button>
+          <form onSubmit={handleAdd}>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                placeholder="First name"
+                value={firstName}
+                onChange={e => setFirstName(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Last name"
+                value={lastName}
+                onChange={e => setLastName(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                required
+              />
+              <button
+                type="submit"
+                disabled={adding}
+                className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {adding ? 'Adding…' : 'Add'}
+              </button>
+            </div>
+            {products.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-gray-400">Assign passes (optional)</p>
+                {products.map(p => {
+                  const checked = p.id in selectedProducts
+                  return (
+                    <div key={p.id} className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id={`np-${p.id}`}
+                        checked={checked}
+                        onChange={e => setSelectedProducts(prev => {
+                          if (e.target.checked) return { ...prev, [p.id]: 10 }
+                          const copy = { ...prev }; delete copy[p.id]; return copy
+                        })}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <label htmlFor={`np-${p.id}`} className="text-sm text-gray-700 flex-1 cursor-pointer">{p.name}</label>
+                      {checked && (
+                        <input
+                          type="number"
+                          min={0}
+                          value={selectedProducts[p.id]}
+                          onChange={e => setSelectedProducts(prev => ({ ...prev, [p.id]: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                          className="w-16 text-center border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </form>
           {addError && (
             <div className={`overflow-hidden transition-all duration-500 ${addErrorFading ? 'max-h-0 mt-0 opacity-0' : 'max-h-24 mt-3 opacity-100'}`}>
@@ -592,6 +772,7 @@ function Dashboard({ session }) {
               <ClientRow
                 key={client.id}
                 client={client}
+                products={products}
                 onUpdate={fetchClients}
                 onRemove={fetchClients}
               />

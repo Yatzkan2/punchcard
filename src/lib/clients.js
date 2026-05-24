@@ -3,26 +3,37 @@ import supabase from '../supabase'
 export async function getClientByCode(code) {
   const { data, error } = await supabase
     .from('clients')
-    .select('*')
+    .select('*, passes(remaining, products(name))')
     .eq('code', code)
     .single()
   if (error) throw error
-  return data
+  return {
+    ...data,
+    passes: (data.passes ?? []).map(p => ({ product_name: p.products.name, remaining: p.remaining })),
+  }
 }
 
 export async function getAllClients() {
   const { data, error } = await supabase
     .from('clients')
-    .select('*')
+    .select('id, name, entries, code, created_at, passes(id, remaining, products(id, name))')
     .order('created_at', { ascending: true })
   if (error) throw error
-  return data
+  return data.map(c => ({
+    ...c,
+    passes: (c.passes ?? []).map(p => ({
+      id: p.id,
+      remaining: p.remaining,
+      product_id: p.products.id,
+      product_name: p.products.name,
+    })),
+  }))
 }
 
-export async function addClient(name, passes, code) {
+export async function addClient(name, code) {
   const { data, error } = await supabase
     .from('clients')
-    .insert({ name, passes, code })
+    .insert({ name, code })
     .select()
     .single()
   if (error) {
@@ -61,6 +72,14 @@ export async function updatePasses(id, passes) {
     .single()
   if (error) throw error
   return data
+}
+
+export async function incrementEntries(id, entries) {
+  const { error } = await supabase
+    .from('clients')
+    .update({ entries: entries + 1 })
+    .eq('id', id)
+  if (error) throw error
 }
 
 export async function removeClient(id) {
