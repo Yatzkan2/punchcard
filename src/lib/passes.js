@@ -30,6 +30,15 @@ export async function upsertPass(clientId, productId, remaining) {
   if (error) throw error
 }
 
+export async function getClientNamesForProduct(productId) {
+  const { data, error } = await supabase
+    .from('passes')
+    .select('clients(name)')
+    .eq('product_id', productId)
+  if (error) throw error
+  return data.map(p => p.clients.name)
+}
+
 export async function removePass(clientId, productId) {
   const { error } = await supabase
     .from('passes')

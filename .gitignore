@@ -17,6 +17,15 @@ dist-ssr
 .env.*
 !.env.example
 
+general_app_build_instruction.md
+
+# Build cache
+.vite
+*.tsbuildinfo
+
+# Test output
+coverage
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

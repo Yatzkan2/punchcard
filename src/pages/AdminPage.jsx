@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import supabase from '../supabase'
 import { getAllClients, addClient as addClientFn, removeClient, incrementEntries } from '../lib/clients'
 import { getProducts, addProduct, removeProduct } from '../lib/products'
-import { upsertPass, removePass } from '../lib/passes'
+import { upsertPass, removePass, getClientNamesForProduct } from '../lib/passes'
 
 const UNAMBIGUOUS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 
@@ -459,38 +459,81 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
 // ─── Products section ─────────────────────────────────────────────────────────
 
 function ProductsSection({ products, onProductsChange }) {
-  const [newName, setNewName]   = useState('')
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState('')
+  const [newName, setNewName]             = useState('')
+  const [saving, setSaving]               = useState(false)
+  const [error, setError]                 = useState('')
+  const [errorVisible, setErrorVisible]   = useState(false)
+  const [pendingRemove, setPendingRemove] = useState(null) // { id, name }
+  const containerRef  = useRef(null)
+  const errorTimer    = useRef(null)
+
+  function showError(msg) {
+    clearTimeout(errorTimer.current)
+    setError(msg)
+    setErrorVisible(true)
+    errorTimer.current = setTimeout(dismissError, 5000)
+  }
+
+  function dismissError() {
+    setErrorVisible(false)
+    setTimeout(() => setError(''), 300)
+  }
+
+  useEffect(() => {
+    function onClickOutside(e) {
+      if (errorVisible && containerRef.current && !containerRef.current.contains(e.target)) {
+        dismissError()
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [errorVisible])
 
   async function handleAdd(e) {
     e.preventDefault()
     const name = newName.trim()
     if (!name) return
     setSaving(true)
-    setError('')
+    dismissError()
     try {
       await addProduct(name)
       setNewName('')
       onProductsChange()
     } catch (err) {
-      setError(err.message)
+      showError(err.message)
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleRemove(id) {
+  async function confirmRemove() {
+    const { id, name } = pendingRemove
+    setPendingRemove(null)
     try {
+      const holders = await getClientNamesForProduct(id)
+      if (holders.length > 0) {
+        showError(
+          `Cannot delete "${name}" — ${holders.length} client${holders.length > 1 ? 's' : ''} still hold passes: ${holders.join(', ')}.`
+        )
+        return
+      }
       await removeProduct(id)
       onProductsChange()
     } catch (err) {
-      setError(err.message)
+      showError(err.message)
     }
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
+    <>
+    {pendingRemove && (
+      <Dialog title="Remove product" confirmLabel="Remove" danger onConfirm={confirmRemove} onCancel={() => setPendingRemove(null)}>
+        <p className="text-sm text-gray-500">
+          Permanently delete <strong>{pendingRemove.name}</strong>? This cannot be undone.
+        </p>
+      </Dialog>
+    )}
+    <div ref={containerRef} className="bg-white rounded-xl border border-gray-200 p-4">
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Products</p>
       <div className="flex flex-wrap gap-2 mb-3">
         {products.length === 0 && (
@@ -500,7 +543,7 @@ function ProductsSection({ products, onProductsChange }) {
           <span key={p.id} className="inline-flex items-center gap-1 bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-full">
             {p.name}
             <button
-              onClick={() => handleRemove(p.id)}
+              onClick={() => setPendingRemove({ id: p.id, name: p.name })}
               className="text-gray-400 hover:text-red-500 transition-colors ml-0.5"
               title="Remove"
             >
@@ -516,7 +559,7 @@ function ProductsSection({ products, onProductsChange }) {
           type="text"
           placeholder="New product name"
           value={newName}
-          onChange={e => { setNewName(e.target.value); setError('') }}
+          onChange={e => { setNewName(e.target.value); dismissError() }}
           className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
         />
         <button
@@ -527,8 +570,11 @@ function ProductsSection({ products, onProductsChange }) {
           {saving ? 'Adding…' : 'Add'}
         </button>
       </form>
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+      <div className={`overflow-hidden transition-all duration-300 ${errorVisible ? 'max-h-20 opacity-100 mt-2' : 'max-h-0 opacity-0 mt-0'}`}>
+        <p className="text-xs text-red-600">{error}</p>
+      </div>
     </div>
+    </>
   )
 }
 
