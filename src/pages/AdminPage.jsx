@@ -3,6 +3,10 @@ import supabase from '../supabase'
 import { getAllClients, addClient as addClientFn, removeClient, incrementEntries } from '../lib/clients'
 import { getProducts, addProduct, removeProduct } from '../lib/products'
 import { upsertPass, removePass, getClientNamesForProduct } from '../lib/passes'
+import { Link } from 'react-router-dom'
+import Dialog from '../components/admin/Dialog'
+import Spinner from '../components/shared/Spinner'
+import TrashIcon from '../components/shared/TrashIcon'
 
 const UNAMBIGUOUS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 
@@ -14,48 +18,6 @@ function generateCode() {
 
 function getInitials(name) {
   return name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase()
-}
-
-// ─── Dialog ───────────────────────────────────────────────────────────────────
-
-function Dialog({ title, children, confirmLabel = 'Confirm', danger = false, disabled = false, onConfirm, onCancel }) {
-  useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape') onCancel() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onCancel])
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40"
-      onClick={e => { if (e.target === e.currentTarget) onCancel() }}
-    >
-      <div className="w-full max-w-xs bg-white rounded-2xl shadow-2xl border border-gray-100 p-6">
-        <h3 className="text-base font-semibold text-gray-900 mb-4">{title}</h3>
-        <div>{children}</div>
-        <div className="flex gap-2 justify-end mt-6">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={disabled}
-            autoFocus
-            className={`px-4 py-2 text-sm font-semibold text-white rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-              danger
-                ? 'bg-red-600 hover:bg-red-700 active:bg-red-800'
-                : 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800'
-            }`}
-          >
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // ─── Login ────────────────────────────────────────────────────────────────────
@@ -144,7 +106,20 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
   }
 
   async function handleCopy() {
-    try { await navigator.clipboard.writeText(client.code) } catch { return }
+    try {
+      await navigator.clipboard.writeText(client.code)
+    } catch {
+      // iOS Safari fallback
+      const el = document.createElement('textarea')
+      el.value = client.code
+      el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0'
+      document.body.appendChild(el)
+      el.focus()
+      el.select()
+      el.setSelectionRange(0, 99999)
+      document.execCommand('copy')
+      document.body.removeChild(el)
+    }
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
@@ -243,9 +218,7 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
             className="text-gray-300 hover:text-red-500 transition-colors p-1.5 shrink-0"
             title="Remove client"
           >
-            <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/>
-            </svg>
+            <TrashIcon className="w-4 h-4" />
           </button>
         </div>
 
@@ -308,7 +281,7 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
                         className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold px-2 py-1 rounded-lg transition-colors"
                       >
                         {busy
-                          ? <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                          ? <Spinner className="w-3 h-3" />
                           : <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg>
                         }
                         Punch
@@ -334,9 +307,7 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
                     className="text-gray-300 hover:text-red-500 transition-colors p-1"
                     title="Remove pass"
                   >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
-                      <path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/>
-                    </svg>
+                    <TrashIcon className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -676,7 +647,12 @@ function Dashboard({ session }) {
     <div className="min-h-screen bg-gray-50">
       {/* Top bar */}
       <header className="bg-white border-b border-gray-200 px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <Link to="/" className="text-gray-300 hover:text-gray-500 transition-colors" title="Home">
+            <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 8h1v5.5A1.5 1.5 0 0 0 4 15h2.5v-3.5h3V15H12a1.5 1.5 0 0 0 1.5-1.5V8h1a.5.5 0 0 0 .354-.854l-6-6Z"/>
+            </svg>
+          </Link>
           <span className="font-semibold text-gray-900 text-sm">Punchcard</span>
           <span className="text-xs text-gray-400">studioNitzk</span>
         </div>

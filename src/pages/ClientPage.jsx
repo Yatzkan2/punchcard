@@ -1,5 +1,7 @@
 import { useState, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { getClientByCode } from '../lib/clients'
+import Spinner from '../components/shared/Spinner'
 
 const CODE_LENGTH = 6
 
@@ -66,6 +68,14 @@ function LookupCard({ onFound }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
+        <div className="mb-4">
+          <Link to="/" className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors" title="Home">
+            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 8h1v5.5A1.5 1.5 0 0 0 4 15h2.5v-3.5h3V15H12a1.5 1.5 0 0 0 1.5-1.5V8h1a.5.5 0 0 0 .354-.854l-6-6Z"/>
+            </svg>
+            Home
+          </Link>
+        </div>
         {/* Logo mark */}
         <div className="flex justify-center mb-8">
           <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-sm">
@@ -113,10 +123,7 @@ function LookupCard({ onFound }) {
             >
               {loading ? (
                 <>
-                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-                  </svg>
+                  <Spinner className="w-4 h-4" />
                   Looking up…
                 </>
               ) : 'Check passes'}
