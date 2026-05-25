@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import LangToggle from '../components/shared/LangToggle'
 
 export default function HomePage() {
+  const { t } = useTranslation()
   const [visible, setVisible] = useState(0)
 
   useEffect(() => {
@@ -13,28 +16,22 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="flex justify-end p-4">
-        <Link
-          to="/admin"
-          className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          Admin
-        </Link>
+      <div className="flex justify-end px-6 pt-5">
+        <LangToggle />
       </div>
-
       <div className="flex-1 flex flex-col items-center justify-center gap-2">
         <h1 className={`text-2xl font-semibold text-gray-900 transition-opacity duration-1000 ${visible >= 1 ? 'opacity-100' : 'opacity-0'}`}>
-          Welcome to StudioNitzk
+          {t('home.welcome')}
         </h1>
         <p className={`text-sm text-gray-500 transition-opacity duration-1000 ${visible >= 2 ? 'opacity-100' : 'opacity-0'}`}>
-          Your space to move, strengthen, and feel good.
+          {t('home.tagline')}
         </p>
         <div className={`mt-8 transition-opacity duration-1000 ${visible >= 3 ? 'opacity-100' : 'opacity-0'}`}>
           <Link
             to="/client"
             className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-lg font-semibold px-10 py-4 rounded-2xl shadow-sm transition-colors"
           >
-            Check my passes
+            {t('home.cta')}
           </Link>
         </div>
       </div>

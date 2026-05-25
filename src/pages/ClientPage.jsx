@@ -1,14 +1,16 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { getClientByCode } from '../lib/clients'
 import Spinner from '../components/shared/Spinner'
+import LangToggle from '../components/shared/LangToggle'
 
 const CODE_LENGTH = 6
 
 function statusFor(passes) {
-  if (passes === 0) return { label: 'No passes left', color: 'red' }
-  if (passes <= 2)  return { label: 'Running low',    color: 'amber' }
-  return               { label: 'Active',             color: 'green' }
+  if (passes === 0) return { labelKey: 'client_view.status_empty', color: 'red' }
+  if (passes <= 2)  return { labelKey: 'client_view.status_low',   color: 'amber' }
+  return               { labelKey: 'client_view.status_active',  color: 'green' }
 }
 
 const palette = {
@@ -35,10 +37,18 @@ const palette = {
 // ─── Lookup ───────────────────────────────────────────────────────────────────
 
 function LookupCard({ onFound }) {
+  const { t } = useTranslation()
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [visible, setVisible] = useState(0)
   const inputRef = useRef(null)
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setVisible(1), 300)
+    const t2 = setTimeout(() => setVisible(2), 900)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [])
 
   function handleChange(e) {
     const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LENGTH)
@@ -49,7 +59,7 @@ function LookupCard({ onFound }) {
   async function handleSubmit(e) {
     e.preventDefault()
     if (code.length < CODE_LENGTH) {
-      setError('Please enter a full 6-character code.')
+      setError(t('client_view.error_incomplete_code'))
       inputRef.current?.focus()
       return
     }
@@ -59,25 +69,27 @@ function LookupCard({ onFound }) {
       const client = await getClientByCode(code)
       onFound(client)
     } catch {
-      setError('Code not found. Check your code and try again.')
+      setError(t('client_view.error_not_found'))
       setLoading(false)
       inputRef.current?.focus()
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <div className="flex items-center justify-between px-6 py-4">
+        <Link to="/" className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors" title={t('client_view.home')}>
+          <svg className="w-3.5 h-3.5 rtl:scale-x-[-1]" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 8h1v5.5A1.5 1.5 0 0 0 4 15h2.5v-3.5h3V15H12a1.5 1.5 0 0 0 1.5-1.5V8h1a.5.5 0 0 0 .354-.854l-6-6Z"/>
+          </svg>
+          {t('client_view.home')}
+        </Link>
+        <LangToggle />
+      </div>
+      <div className="flex-1 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-4">
-          <Link to="/" className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors" title="Home">
-            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 8h1v5.5A1.5 1.5 0 0 0 4 15h2.5v-3.5h3V15H12a1.5 1.5 0 0 0 1.5-1.5V8h1a.5.5 0 0 0 .354-.854l-6-6Z"/>
-            </svg>
-            Home
-          </Link>
-        </div>
         {/* Logo mark */}
-        <div className="flex justify-center mb-8">
+        <div className={`flex justify-center mb-8 transition-opacity duration-1000 ${visible >= 1 ? 'opacity-100' : 'opacity-0'}`}>
           <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-sm">
             <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="3" />
@@ -86,9 +98,9 @@ function LookupCard({ onFound }) {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-          <h1 className="text-xl font-semibold text-gray-900 mb-1 text-center">Check your passes</h1>
-          <p className="text-sm text-gray-400 text-center mb-7">Enter the 6-character code from your studio</p>
+        <div className={`bg-white rounded-2xl border border-gray-200 shadow-sm p-8 transition-opacity duration-1000 ${visible >= 2 ? 'opacity-100' : 'opacity-0'}`}>
+          <h1 className="text-xl font-semibold text-gray-900 mb-1 text-center">{t('client_view.lookup_title')}</h1>
+          <p className="text-sm text-gray-400 text-center mb-7">{t('client_view.lookup_subtitle')}</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <input
@@ -97,7 +109,7 @@ function LookupCard({ onFound }) {
               inputMode="text"
               value={code}
               onChange={handleChange}
-              placeholder="XXXXXX"
+              placeholder={t('client_view.lookup_placeholder')}
               maxLength={CODE_LENGTH}
               autoFocus
               autoComplete="off"
@@ -124,12 +136,13 @@ function LookupCard({ onFound }) {
               {loading ? (
                 <>
                   <Spinner className="w-4 h-4" />
-                  Looking up…
+                  {t('client_view.looking_up')}
                 </>
-              ) : 'Check passes'}
+              ) : t('client_view.lookup_submit')}
             </button>
           </form>
         </div>
+      </div>
       </div>
     </div>
   )
@@ -138,7 +151,8 @@ function LookupCard({ onFound }) {
 // ─── Result ───────────────────────────────────────────────────────────────────
 
 function PassCard({ product_name, remaining }) {
-  const { label, color } = statusFor(remaining)
+  const { t } = useTranslation()
+  const { labelKey, color } = statusFor(remaining)
   const c   = palette[color]
   const pct = Math.min(Math.round((remaining / 10) * 100), 100)
 
@@ -147,14 +161,14 @@ function PassCard({ product_name, remaining }) {
       <div className="px-4 pt-4 pb-3">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{product_name}</p>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${c.badge}`}>{label}</span>
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${c.badge}`}>{t(labelKey)}</span>
         </div>
         <div className="flex items-end gap-3">
           <span className={`text-5xl font-black tabular-nums leading-none ${c.count}`}>
             {remaining}
           </span>
           <p className="text-sm text-gray-400 mb-1">
-            {remaining === 1 ? 'pass remaining' : 'passes remaining'}
+            {remaining === 1 ? t('client_view.pass_remaining_one') : t('client_view.pass_remaining_other')}
           </p>
         </div>
       </div>
@@ -175,36 +189,45 @@ function PassCard({ product_name, remaining }) {
 }
 
 function ResultCard({ client, onBack }) {
+  const { t } = useTranslation()
   const { name, passes } = client
   const hasWarning = passes.some(p => p.remaining <= 2)
+  const [visible, setVisible] = useState(0)
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setVisible(1), 200)
+    const t2 = setTimeout(() => setVisible(2), 700)
+    const t3 = setTimeout(() => setVisible(3), 1100)
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+  }, [])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
       <div className="w-full max-w-sm">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           {/* Header strip */}
-          <div className="bg-gray-50 border-b border-gray-100 px-6 py-4">
+          <div className={`bg-gray-50 border-b border-gray-100 px-6 py-4 transition-opacity duration-1000 ${visible >= 1 ? 'opacity-100' : 'opacity-0'}`}>
             <button
               onClick={onBack}
               className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors"
             >
-              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+              <svg className="w-4 h-4 rtl:scale-x-[-1]" viewBox="0 0 16 16" fill="currentColor">
                 <path fillRule="evenodd" d="M9.78 4.22a.75.75 0 0 1 0 1.06L7.06 8l2.72 2.72a.75.75 0 1 1-1.06 1.06L5.47 8.53a.75.75 0 0 1 0-1.06l3.25-3.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd"/>
               </svg>
-              Check another
+              {t('client_view.check_another')}
             </button>
           </div>
 
           {/* Name */}
-          <div className="px-6 pt-6 pb-4 text-center">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-1">Welcome back</p>
+          <div className={`px-6 pt-6 pb-4 text-center transition-opacity duration-1000 ${visible >= 1 ? 'opacity-100' : 'opacity-0'}`}>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-1">{t('client_view.welcome_back')}</p>
             <h2 className="text-2xl font-bold text-gray-900">{name}</h2>
           </div>
 
           {/* Product cards */}
-          <div className="px-4 pb-4 space-y-3">
+          <div className={`px-4 pb-4 space-y-3 transition-opacity duration-1000 ${visible >= 2 ? 'opacity-100' : 'opacity-0'}`}>
             {passes.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-6">No passes assigned yet.</p>
+              <p className="text-sm text-gray-400 text-center py-6">{t('client_view.no_passes')}</p>
             ) : (
               passes.map(p => (
                 <PassCard key={p.product_name} product_name={p.product_name} remaining={p.remaining} />
@@ -214,9 +237,9 @@ function ResultCard({ client, onBack }) {
 
           {/* Footer warning */}
           {hasWarning && (
-            <div className="border-t border-amber-100 bg-amber-50 px-6 py-4 text-center">
+            <div className={`border-t border-amber-100 bg-amber-50 px-6 py-4 text-center transition-opacity duration-1000 ${visible >= 3 ? 'opacity-100' : 'opacity-0'}`}>
               <p className="text-sm font-medium text-amber-700">
-                One or more passes are running low — contact your studio soon.
+                {t('client_view.low_warning')}
               </p>
             </div>
           )}

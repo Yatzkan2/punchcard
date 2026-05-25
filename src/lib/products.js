@@ -23,6 +23,12 @@ export async function addProduct(name) {
 }
 
 export async function removeProduct(id) {
+  const { error: passesError } = await supabase
+    .from('passes')
+    .delete()
+    .eq('product_id', id)
+  if (passesError) throw passesError
+
   const { error } = await supabase
     .from('products')
     .delete()

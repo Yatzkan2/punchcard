@@ -35,6 +35,7 @@ export async function getClientNamesForProduct(productId) {
     .from('passes')
     .select('clients(name)')
     .eq('product_id', productId)
+    .gt('remaining', 0)
   if (error) throw error
   return data.map(p => p.clients.name)
 }

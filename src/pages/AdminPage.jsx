@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation, Trans } from 'react-i18next'
 import supabase from '../supabase'
 import { getAllClients, addClient as addClientFn, removeClient, incrementEntries } from '../lib/clients'
 import { getProducts, addProduct, removeProduct } from '../lib/products'
@@ -7,6 +8,7 @@ import { Link } from 'react-router-dom'
 import Dialog from '../components/admin/Dialog'
 import Spinner from '../components/shared/Spinner'
 import TrashIcon from '../components/shared/TrashIcon'
+import LangToggle from '../components/shared/LangToggle'
 
 const UNAMBIGUOUS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 
@@ -23,6 +25,7 @@ function getInitials(name) {
 // ─── Login ────────────────────────────────────────────────────────────────────
 
 function LoginCard() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -40,11 +43,11 @@ function LoginCard() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-        <h1 className="text-xl font-semibold text-gray-900 mb-1">Admin</h1>
-        <p className="text-sm text-gray-500 mb-6">Sign in to manage Punchcard</p>
+        <h1 className="text-xl font-semibold text-gray-900 mb-1">{t('auth.title')}</h1>
+        <p className="text-sm text-gray-500 mb-6">{t('auth.subtitle')}</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Email</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">{t('auth.email')}</label>
             <input
               type="email"
               value={email}
@@ -55,7 +58,7 @@ function LoginCard() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Password</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">{t('auth.password')}</label>
             <input
               type="password"
               value={password}
@@ -74,7 +77,7 @@ function LoginCard() {
             disabled={loading}
             className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? t('auth.signing_in') : t('auth.sign_in')}
           </button>
         </form>
       </div>
@@ -85,6 +88,7 @@ function LoginCard() {
 // ─── Client row ───────────────────────────────────────────────────────────────
 
 function ClientRow({ client, products, onUpdate, onRemove }) {
+  const { t } = useTranslation()
   const entries = client.entries ?? 0
   const [copied, setCopied]       = useState(false)
   const [busy, setBusy]           = useState(false)
@@ -101,7 +105,7 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
   const availableForAdd = products.filter(p => !assignedIds.has(p.id))
 
   function showError(e) {
-    setRowError(e?.message ?? 'Something went wrong.')
+    setRowError(e?.message ?? t('clients.something_wrong'))
     setTimeout(() => setRowError(''), 4000)
   }
 
@@ -204,7 +208,7 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
             <button
               onClick={handleCopy}
               className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs bg-gray-100 hover:bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded transition-colors"
-              title="Click to copy"
+              title={t('clients.copy_title')}
             >
               {client.code}
               {copied
@@ -216,21 +220,20 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
           <button
             onClick={() => setDialog({ type: 'removeClient' })}
             className="text-gray-300 hover:text-red-500 transition-colors p-1.5 shrink-0"
-            title="Remove client"
+            title={t('clients.remove_title')}
           >
             <TrashIcon className="w-4 h-4" />
           </button>
         </div>
 
         {/* Per-product pass rows */}
-        <div className="mt-2 ml-12 space-y-2">
+        <div className="mt-2 ltr:ml-12 rtl:mr-12 space-y-2">
           {client.passes.length === 0 && (
-            <p className="text-xs text-gray-400">No passes assigned.</p>
+            <p className="text-xs text-gray-400">{t('passes.none_assigned')}</p>
           )}
           {client.passes.map(pass => {
             const isEditing  = editingPassId === pass.id
             const passColor  = pass.remaining === 0 ? 'text-red-600' : pass.remaining <= 2 ? 'text-amber-500' : 'text-gray-800'
-            const adjustVal  = Math.max(0, parseInt(editValue, 10) || 0)
 
             return (
               <div key={pass.id} className="flex items-center gap-2 flex-wrap">
@@ -264,13 +267,13 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
                         disabled={busy}
                         className="text-xs font-semibold px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-50"
                       >
-                        Save
+                        {t('passes.save')}
                       </button>
                       <button
                         onClick={cancelEdit}
                         className="text-xs font-medium px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
                       >
-                        Cancel
+                        {t('passes.cancel')}
                       </button>
                     </>
                   ) : (
@@ -284,7 +287,7 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
                           ? <Spinner className="w-3 h-3" />
                           : <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg>
                         }
-                        Punch
+                        {t('passes.punch')}
                       </button>
                       <button
                         onClick={() => setDialog({ type: 'refill', pass })}
@@ -292,20 +295,20 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
                         className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold px-2 py-1 rounded-lg transition-colors"
                       >
                         <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/></svg>
-                        Refill
+                        {t('passes.refill')}
                       </button>
                       <button
                         onClick={() => startEdit(pass)}
                         className="text-xs font-medium px-2 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-800 transition-colors"
                       >
-                        Adjust
+                        {t('passes.adjust')}
                       </button>
                     </>
                   )}
                   <button
                     onClick={() => setDialog({ type: 'removePass', pass })}
                     className="text-gray-300 hover:text-red-500 transition-colors p-1"
-                    title="Remove pass"
+                    title={t('passes.remove_title')}
                   >
                     <TrashIcon className="w-3.5 h-3.5" />
                   </button>
@@ -322,7 +325,7 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
                 onChange={e => setAddProductId(e.target.value)}
                 className="flex-1 border border-gray-200 rounded-md px-2 py-0.5 text-xs text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
               >
-                <option value="">Add product…</option>
+                <option value="">{t('passes.add_product_placeholder')}</option>
                 {availableForAdd.map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
@@ -342,7 +345,7 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
                   disabled={addingPass}
                   className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50 transition-colors"
                 >
-                  {addingPass ? '…' : 'Add'}
+                  {addingPass ? '…' : t('passes.add')}
                 </button>
               )}
             </form>
@@ -359,14 +362,14 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
 
       {/* ── Punch confirm ── */}
       {dialog?.type === 'punch' && (
-        <Dialog title="Use 1 pass" confirmLabel="Use Pass" onConfirm={confirmPunch} onCancel={() => setDialog(null)}>
-          <p className="text-sm text-gray-500 mb-4">Recording a visit for {client.name} — {activePass?.product_name}.</p>
+        <Dialog title={t('passes.punch_dialog_title')} confirmLabel={t('passes.punch_confirm')} onConfirm={confirmPunch} onCancel={() => setDialog(null)}>
+          <p className="text-sm text-gray-500 mb-4">{t('passes.punch_dialog_body', { name: client.name, product: activePass?.product_name })}</p>
           <div className="flex items-center justify-center gap-6 py-4 bg-gray-50 rounded-xl">
             <div className="text-center">
               <p className="text-3xl font-semibold text-gray-300 leading-none">{activePass?.remaining}</p>
-              <p className="text-xs text-gray-400 mt-1">now</p>
+              <p className="text-xs text-gray-400 mt-1">{t('passes.punch_now')}</p>
             </div>
-            <svg className="w-5 h-5 text-gray-300" viewBox="0 0 20 20" fill="currentColor">
+            <svg className="w-5 h-5 text-gray-300 rtl:scale-x-[-1]" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clipRule="evenodd"/>
             </svg>
             <div className="text-center">
@@ -374,7 +377,7 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
                 (activePass?.remaining ?? 1) - 1 === 0 ? 'text-red-500' :
                 (activePass?.remaining ?? 1) - 1 <= 2 ? 'text-amber-500' : 'text-indigo-600'
               }`}>{(activePass?.remaining ?? 1) - 1}</p>
-              <p className="text-xs text-gray-400 mt-1">after</p>
+              <p className="text-xs text-gray-400 mt-1">{t('passes.punch_after')}</p>
             </div>
           </div>
         </Dialog>
@@ -382,25 +385,32 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
 
       {/* ── Refill confirm ── */}
       {dialog?.type === 'refill' && (
-        <Dialog title="Refill passes" confirmLabel="Refill to 10" onConfirm={confirmRefill} onCancel={() => setDialog(null)}>
+        <Dialog title={t('passes.refill_dialog_title')} confirmLabel={t('passes.refill_confirm')} onConfirm={confirmRefill} onCancel={() => setDialog(null)}>
           <p className="text-sm text-gray-500">
-            Reset {client.name}'s {activePass?.product_name} passes back to 10?
+            {t('passes.refill_dialog_body', { name: client.name, product: activePass?.product_name })}
           </p>
           {(activePass?.remaining ?? 0) > 0 && (
-            <p className="mt-1.5 text-xs text-gray-400">Current count: {activePass?.remaining}</p>
+            <p className="mt-1.5 text-xs text-gray-400">{t('passes.refill_current_count', { count: activePass?.remaining })}</p>
           )}
         </Dialog>
       )}
 
       {/* ── Adjust confirm ── */}
       {dialog?.type === 'adjust' && (
-        <Dialog title="Adjust passes" confirmLabel="Confirm" onConfirm={confirmAdjust} onCancel={() => { setDialog(null); cancelEdit() }}>
+        <Dialog title={t('passes.adjust_dialog_title')} confirmLabel={t('passes.adjust_confirm')} onConfirm={confirmAdjust} onCancel={() => { setDialog(null); cancelEdit() }}>
           <p className="text-sm text-gray-500">
-            Set {client.name}'s {activePass?.product_name} passes to {Math.max(0, parseInt(editValue, 10) || 0)}?
+            {t('passes.adjust_dialog_body', {
+              name: client.name,
+              product: activePass?.product_name,
+              value: Math.max(0, parseInt(editValue, 10) || 0),
+            })}
           </p>
           {Math.max(0, parseInt(editValue, 10) || 0) !== activePass?.remaining && (
             <p className="mt-1.5 text-xs text-gray-400">
-              This changes the count from {activePass?.remaining} to {Math.max(0, parseInt(editValue, 10) || 0)}.
+              {t('passes.adjust_dialog_detail', {
+                from: activePass?.remaining,
+                to: Math.max(0, parseInt(editValue, 10) || 0),
+              })}
             </p>
           )}
         </Dialog>
@@ -408,18 +418,18 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
 
       {/* ── Remove pass confirm ── */}
       {dialog?.type === 'removePass' && (
-        <Dialog title="Remove passes" confirmLabel="Remove" danger onConfirm={confirmRemovePass} onCancel={() => setDialog(null)}>
+        <Dialog title={t('passes.remove_dialog_title')} confirmLabel={t('passes.remove_confirm')} danger onConfirm={confirmRemovePass} onCancel={() => setDialog(null)}>
           <p className="text-sm text-gray-500">
-            Remove {activePass?.product_name} passes for {client.name}? This cannot be undone.
+            {t('passes.remove_dialog_body', { product: activePass?.product_name, name: client.name })}
           </p>
         </Dialog>
       )}
 
       {/* ── Remove client confirm ── */}
       {dialog?.type === 'removeClient' && (
-        <Dialog title="Remove client" confirmLabel="Remove" danger onConfirm={confirmRemoveClient} onCancel={() => setDialog(null)}>
+        <Dialog title={t('clients.remove_dialog_title')} confirmLabel={t('clients.remove_confirm')} danger onConfirm={confirmRemoveClient} onCancel={() => setDialog(null)}>
           <p className="text-sm text-gray-500">
-            Permanently delete {client.name}? This cannot be undone.
+            {t('clients.remove_dialog_body', { name: client.name })}
           </p>
         </Dialog>
       )}
@@ -430,6 +440,7 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
 // ─── Products section ─────────────────────────────────────────────────────────
 
 function ProductsSection({ products, onProductsChange }) {
+  const { t } = useTranslation()
   const [newName, setNewName]             = useState('')
   const [saving, setSaving]               = useState(false)
   const [error, setError]                 = useState('')
@@ -484,7 +495,9 @@ function ProductsSection({ products, onProductsChange }) {
       const holders = await getClientNamesForProduct(id)
       if (holders.length > 0) {
         showError(
-          `Cannot delete "${name}" — ${holders.length} client${holders.length > 1 ? 's' : ''} still hold passes: ${holders.join(', ')}.`
+          holders.length === 1
+            ? t('products.delete_blocked_one', { name, holders: holders.join(', ') })
+            : t('products.delete_blocked_many', { name, count: holders.length, holders: holders.join(', ') })
         )
         return
       }
@@ -498,25 +511,25 @@ function ProductsSection({ products, onProductsChange }) {
   return (
     <>
     {pendingRemove && (
-      <Dialog title="Remove product" confirmLabel="Remove" danger onConfirm={confirmRemove} onCancel={() => setPendingRemove(null)}>
+      <Dialog title={t('products.remove_dialog_title')} confirmLabel={t('products.remove_confirm')} danger onConfirm={confirmRemove} onCancel={() => setPendingRemove(null)}>
         <p className="text-sm text-gray-500">
-          Permanently delete <strong>{pendingRemove.name}</strong>? This cannot be undone.
+          <Trans i18nKey="products.remove_dialog_body" values={{ name: pendingRemove.name }} />
         </p>
       </Dialog>
     )}
     <div ref={containerRef} className="bg-white rounded-xl border border-gray-200 p-4">
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Products</p>
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{t('products.section_title')}</p>
       <div className="flex flex-wrap gap-2 mb-3">
         {products.length === 0 && (
-          <span className="text-xs text-gray-400">No products yet.</span>
+          <span className="text-xs text-gray-400">{t('products.empty')}</span>
         )}
         {products.map(p => (
           <span key={p.id} className="inline-flex items-center gap-1 bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-full">
             {p.name}
             <button
               onClick={() => setPendingRemove({ id: p.id, name: p.name })}
-              className="text-gray-400 hover:text-red-500 transition-colors ml-0.5"
-              title="Remove"
+              className="text-gray-400 hover:text-red-500 transition-colors ltr:ml-0.5 rtl:mr-0.5"
+              title={t('products.remove_confirm')}
             >
               <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
@@ -528,7 +541,7 @@ function ProductsSection({ products, onProductsChange }) {
       <form onSubmit={handleAdd} className="flex gap-2">
         <input
           type="text"
-          placeholder="New product name"
+          placeholder={t('products.placeholder')}
           value={newName}
           onChange={e => { setNewName(e.target.value); dismissError() }}
           className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
@@ -538,7 +551,7 @@ function ProductsSection({ products, onProductsChange }) {
           disabled={saving || !newName.trim()}
           className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {saving ? 'Adding…' : 'Add'}
+          {saving ? t('products.adding') : t('products.add')}
         </button>
       </form>
       <div className={`overflow-hidden transition-all duration-300 ${errorVisible ? 'max-h-20 opacity-100 mt-2' : 'max-h-0 opacity-0 mt-0'}`}>
@@ -552,6 +565,7 @@ function ProductsSection({ products, onProductsChange }) {
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 function Dashboard({ session }) {
+  const { t } = useTranslation()
   const [clients, setClients] = useState([])
   const [fetchError, setFetchError] = useState('')
   const [products, setProducts] = useState([])
@@ -588,7 +602,7 @@ function Dashboard({ session }) {
       setFetchError('')
       setClients(await getAllClients())
     } catch (e) {
-      setFetchError(e.message ?? 'Failed to load clients.')
+      setFetchError(e.message ?? t('dashboard.failed_to_load'))
     }
   }
 
@@ -598,13 +612,13 @@ function Dashboard({ session }) {
     e.preventDefault()
     const fullName = `${firstName.trim()} ${lastName.trim()}`.replace(/\s+/g, ' ')
     if (!/\p{L}/u.test(fullName)) {
-      setAddError('Name must contain at least one letter.')
+      setAddError(t('clients.name_invalid'))
       return
     }
     const norm = s => s.toLowerCase().replace(/\s+/g, ' ').trim()
     const duplicate = clients.some(c => norm(c.name) === norm(fullName))
     if (duplicate) {
-      setAddError(`${fullName} is already a client.`)
+      setAddError(t('clients.already_exists', { name: fullName }))
       return
     }
     setAdding(true)
@@ -638,9 +652,9 @@ function Dashboard({ session }) {
   const needRenewal  = clients.filter(c => c.passes.some(p => p.remaining <= 2)).length
 
   const stats = [
-    { label: 'Total clients', value: totalClients },
-    { label: 'Active passes', value: activePasses },
-    { label: 'Need renewal',  value: needRenewal,  alert: needRenewal > 0 },
+    { label: t('dashboard.stat_total_clients'), value: totalClients },
+    { label: t('dashboard.stat_active_passes'), value: activePasses },
+    { label: t('dashboard.stat_need_renewal'),  value: needRenewal,  alert: needRenewal > 0 },
   ]
 
   return (
@@ -648,21 +662,22 @@ function Dashboard({ session }) {
       {/* Top bar */}
       <header className="bg-white border-b border-gray-200 px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link to="/" className="text-gray-300 hover:text-gray-500 transition-colors" title="Home">
+          <Link to="/" className="text-gray-300 hover:text-gray-500 transition-colors" title={t('client_view.home')}>
             <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 8h1v5.5A1.5 1.5 0 0 0 4 15h2.5v-3.5h3V15H12a1.5 1.5 0 0 0 1.5-1.5V8h1a.5.5 0 0 0 .354-.854l-6-6Z"/>
             </svg>
           </Link>
-          <span className="font-semibold text-gray-900 text-sm">Punchcard</span>
-          <span className="text-xs text-gray-400">studioNitzk</span>
+          <span className="font-semibold text-gray-900 text-sm">{t('dashboard.brand')}</span>
+          <span className="text-xs text-gray-400">{t('dashboard.studio')}</span>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-xs text-gray-400 hidden sm:block truncate max-w-48">{session.user.email}</span>
+          <LangToggle />
           <button
             onClick={() => supabase.auth.signOut()}
             className="text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
           >
-            Sign out
+            {t('auth.sign_out')}
           </button>
         </div>
       </header>
@@ -681,16 +696,16 @@ function Dashboard({ session }) {
         </div>
 
         {/* Products */}
-        <ProductsSection products={products} onProductsChange={fetchProducts} />
+        <ProductsSection products={products} onProductsChange={() => { fetchProducts(); fetchClients() }} />
 
         {/* Add client */}
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Add client</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{t('clients.add_section_title')}</p>
           <form onSubmit={handleAdd}>
             <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
-                placeholder="First name"
+                placeholder={t('clients.first_name')}
                 value={firstName}
                 onChange={e => setFirstName(e.target.value)}
                 className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
@@ -698,7 +713,7 @@ function Dashboard({ session }) {
               />
               <input
                 type="text"
-                placeholder="Last name"
+                placeholder={t('clients.last_name')}
                 value={lastName}
                 onChange={e => setLastName(e.target.value)}
                 className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
@@ -709,12 +724,12 @@ function Dashboard({ session }) {
                 disabled={adding}
                 className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {adding ? 'Adding…' : 'Add'}
+                {adding ? t('clients.adding') : t('clients.add')}
               </button>
             </div>
             {products.length > 0 && (
               <div className="mt-3 space-y-2">
-                <p className="text-xs text-gray-400">Assign passes (optional)</p>
+                <p className="text-xs text-gray-400">{t('clients.assign_passes_optional')}</p>
                 {products.map(p => {
                   const checked = p.id in selectedProducts
                   return (
@@ -757,38 +772,40 @@ function Dashboard({ session }) {
         {/* Client list */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Clients</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">{t('clients.section_title')}</p>
             <div className="relative flex-1">
-              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" viewBox="0 0 16 16" fill="currentColor">
+              <svg className="absolute ltr:left-2.5 rtl:right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/>
               </svg>
               <input
                 type="text"
-                placeholder="Search clients…"
+                placeholder={t('clients.search_placeholder')}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full ltr:pl-8 ltr:pr-3 rtl:pr-8 rtl:pl-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
             <span className="text-xs text-gray-400 shrink-0">
-              {search.trim() ? `${filteredClients.length} / ${clients.length}` : `${clients.length} total`}
+              {search.trim()
+                ? t('clients.count_filtered', { filtered: filteredClients.length, total: clients.length })
+                : t('clients.count_total', { count: clients.length })}
             </span>
           </div>
           {fetchError ? (
             <div className="px-4 py-8 text-center">
-              <p className="text-sm text-red-600 font-medium mb-1">Could not load clients</p>
+              <p className="text-sm text-red-600 font-medium mb-1">{t('clients.load_error_title')}</p>
               <p className="text-xs text-gray-400 mb-4">{fetchError}</p>
               <button
                 onClick={fetchClients}
                 className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
               >
-                Try again
+                {t('clients.try_again')}
               </button>
             </div>
           ) : clients.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-12">No clients yet.</p>
+            <p className="text-sm text-gray-400 text-center py-12">{t('clients.empty')}</p>
           ) : filteredClients.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-12">No clients match "{search}".</p>
+            <p className="text-sm text-gray-400 text-center py-12">{t('clients.no_match', { search })}</p>
           ) : (
             filteredClients.map(client => (
               <ClientRow
