@@ -120,7 +120,10 @@
     "no_classes": "אין שיעורים מתוכננים השבוע.",
     "add_client": "הוסף לקוח…",
     "loading": "טוען…",
-    "participants": "משתתפים"
+    "participants": "משתתפים",
+    "unregister_title": "הסר רישום",
+    "unregister_body": "להסיר את {{name}} מהשיעור?",
+    "unregister_confirm": "הסר"
   },
   "client_view": {
     "home": "בית",

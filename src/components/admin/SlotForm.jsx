@@ -44,8 +44,11 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
   const [error,     setError]     = useState('')
 
   // Delete state (edit mode only)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const [deleting,         setDeleting]         = useState(false)
+  const [confirmingDelete,  setConfirmingDelete]  = useState(false)
+  const [deleting,          setDeleting]          = useState(false)
+
+  // Unregister confirmation state (edit mode only)
+  const [pendingUnregister, setPendingUnregister] = useState(null) // { clientId, registrationId, name }
 
   // Registration state (edit mode only)
   const [registrations,    setRegistrations]    = useState(slot?.slot_registrations ?? [])
@@ -137,7 +140,9 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
     }
   }
 
-  async function handleUnregister(clientId, registrationId) {
+  async function confirmUnregister() {
+    const { clientId, registrationId } = pendingUnregister
+    setPendingUnregister(null)
     setRegBusy(b => ({ ...b, [clientId]: true }))
     setRegError('')
     try {
@@ -152,6 +157,19 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
 
   return (
     <>
+    {pendingUnregister && (
+      <Dialog
+        title={t('schedule.unregister_title')}
+        confirmLabel={t('schedule.unregister_confirm')}
+        danger
+        onConfirm={confirmUnregister}
+        onCancel={() => setPendingUnregister(null)}
+      >
+        <p className="text-sm text-gray-500">
+          {t('schedule.unregister_body', { name: pendingUnregister.name })}
+        </p>
+      </Dialog>
+    )}
     {confirmingDelete && (
       <Dialog
         title={t('schedule.delete_title')}
@@ -244,7 +262,7 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
                 ) : (
                   <button
                     type="button"
-                    onClick={() => handleUnregister(r.clients.id, r.id)}
+                    onClick={() => setPendingUnregister({ clientId: r.clients.id, registrationId: r.id, name: r.clients.name })}
                     className="text-indigo-300 hover:text-red-500 transition-colors leading-none ml-0.5"
                     aria-label="Remove"
                   >×</button>

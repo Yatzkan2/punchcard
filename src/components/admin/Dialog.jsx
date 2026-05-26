@@ -11,10 +11,10 @@ export default function Dialog({ title, children, confirmLabel = 'Confirm', dang
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40"
+      className="animate-modal-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40"
       onClick={e => { if (e.target === e.currentTarget) onCancel() }}
     >
-      <div className="w-full max-w-xs bg-white rounded-2xl shadow-2xl border border-gray-100 p-6">
+      <div className="animate-modal-content w-full max-w-xs bg-white rounded-2xl shadow-2xl border border-gray-100 p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-4">{title}</h3>
         <div>{children}</div>
         <div className="flex gap-2 justify-end mt-6">
