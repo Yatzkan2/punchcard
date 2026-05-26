@@ -19,7 +19,9 @@
     "stat_total_clients": "Total clients",
     "stat_active_passes": "Active passes",
     "stat_need_renewal": "Need renewal",
-    "failed_to_load": "Failed to load clients."
+    "failed_to_load": "Failed to load clients.",
+    "nav_clients": "Clients",
+    "nav_schedule": "Schedule"
   },
   "products": {
     "section_title": "Products",
@@ -84,6 +86,42 @@
     "remove_dialog_body": "Remove {{product}} passes for {{name}}? This cannot be undone.",
     "remove_confirm": "Remove"
   },
+  "schedule": {
+    "new_slot": "New slot",
+    "edit_slot": "Edit slot",
+    "label_date": "Date",
+    "label_time": "Time",
+    "label_activity": "Activity",
+    "activity_none": "— None —",
+    "label_capacity": "Number of participants",
+    "label_notes": "Notes",
+    "optional": "(optional)",
+    "notes_placeholder": "e.g. bring a mat",
+    "create": "Create slot",
+    "creating": "Creating…",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "edit": "Edit",
+    "delete": "Delete",
+    "no_slots": "No slots this week.",
+    "delete_title": "Delete slot",
+    "delete_confirm": "Delete",
+    "delete_body": "Permanently delete the {{datetime}} slot? Registrations will also be removed.",
+    "attendance_title": "Attendance",
+    "unnamed": "Unnamed",
+    "stats": "{{registered}} registered · {{attended}} attended",
+    "no_clients": "No clients have a pass for this activity.",
+    "passes_left": "{{count}} left",
+    "registered": "Registered",
+    "attended": "Attended",
+    "you_are_in": "You're in ✓",
+    "full": "Full",
+    "spots_left": "{{count}} left",
+    "no_classes": "No classes scheduled this week.",
+    "add_client": "Add client…",
+    "loading": "Loading…",
+    "participants": "Participants"
+  },
   "client_view": {
     "home": "Home",
     "lookup_title": "Check your passes",
@@ -101,6 +139,8 @@
     "welcome_back": "Welcome back",
     "check_another": "Check another",
     "no_passes": "No passes assigned yet.",
-    "low_warning": "One or more passes are running low — contact your studio soon."
+    "low_warning": "One or more passes are running low — contact your studio soon.",
+    "tab_passes": "My Passes",
+    "tab_schedule": "Schedule"
   }
 }

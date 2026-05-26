@@ -1,0 +1,100 @@
+import { useState, useEffect, useRef, Fragment } from 'react'
+import { Link } from 'react-router-dom'
+import { isValidElement } from 'react'
+
+// actions: array of ReactNode  |  { label: string, onClick: fn }
+// nav:     array of ReactNode — always visible, rendered between title and right side
+export default function Topbar({ title, subtitle, nav = [], actions = [] }) {
+  const [open,    setOpen]    = useState(false)
+  const menuRef               = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onMouse = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false) }
+    const onKey   = e => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onMouse)
+    document.addEventListener('keydown',   onKey)
+    return () => {
+      document.removeEventListener('mousedown', onMouse)
+      document.removeEventListener('keydown',   onKey)
+    }
+  }, [open])
+
+  return (
+    <header className="bg-white border-b border-gray-200 px-4 h-14 flex items-center justify-between">
+      {/* Left: home + title + subtitle + nav */}
+      <div className="flex items-center gap-3 min-w-0">
+        <Link to="/" className="text-gray-300 hover:text-gray-500 transition-colors shrink-0">
+          <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 8h1v5.5A1.5 1.5 0 0 0 4 15h2.5v-3.5h3V15H12a1.5 1.5 0 0 0 1.5-1.5V8h1a.5.5 0 0 0 .354-.854l-6-6Z"/>
+          </svg>
+        </Link>
+        <span className="font-semibold text-gray-900 text-sm shrink-0">{title}</span>
+        {subtitle && <span className="text-xs text-gray-400 shrink-0">{subtitle}</span>}
+        {nav.map((item, i) => <Fragment key={i}>{item}</Fragment>)}
+      </div>
+
+      {/* Right desktop */}
+      <div className="hidden sm:flex items-center gap-4 shrink-0">
+        {actions.map((action, i) => renderInline(action, i))}
+      </div>
+
+      {/* Right mobile: hamburger */}
+      <div className="sm:hidden relative shrink-0" ref={menuRef}>
+        <button
+          onClick={() => setOpen(v => !v)}
+          className="p-2 -mr-1 text-gray-500 hover:text-gray-700 transition-colors"
+          aria-label="Menu"
+        >
+          {open ? (
+            <svg className="w-5 h-5" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
+            </svg>
+          ) : (
+            <svg className="w-5 h-5" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M1 3.75A.75.75 0 0 1 1.75 3h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 3.75ZM1 8a.75.75 0 0 1 .75-.75h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 8Zm0 4.25a.75.75 0 0 1 .75-.75h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1-.75-.75Z"/>
+            </svg>
+          )}
+        </button>
+
+        {open && (
+          <div className="animate-modal-content absolute end-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50">
+            {actions.map((action, i) => renderDropdown(action, i, () => setOpen(false)))}
+          </div>
+        )}
+      </div>
+    </header>
+  )
+}
+
+function renderInline(action, i) {
+  if (isValidElement(action)) return <Fragment key={i}>{action}</Fragment>
+  return (
+    <button
+      key={i}
+      onClick={action.onClick}
+      className="text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
+    >
+      {action.label}
+    </button>
+  )
+}
+
+function renderDropdown(action, i, close) {
+  if (isValidElement(action)) {
+    return (
+      <div key={i} className="px-4 py-2.5 border-b border-gray-50 last:border-0">
+        {action}
+      </div>
+    )
+  }
+  return (
+    <button
+      key={i}
+      onClick={() => { action.onClick(); close() }}
+      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+    >
+      {action.label}
+    </button>
+  )
+}

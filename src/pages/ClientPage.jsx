@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getClientByCode } from '../lib/clients'
 import Spinner from '../components/shared/Spinner'
 import LangToggle from '../components/shared/LangToggle'
+import Topbar from '../components/shared/Topbar'
+import Schedule from '../components/client/Schedule'
 
 const CODE_LENGTH = 6
 
@@ -77,15 +78,11 @@ function LookupCard({ onFound }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <div className="flex items-center justify-between px-6 py-4">
-        <Link to="/" className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors" title={t('client_view.home')}>
-          <svg className="w-3.5 h-3.5 rtl:scale-x-[-1]" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 8h1v5.5A1.5 1.5 0 0 0 4 15h2.5v-3.5h3V15H12a1.5 1.5 0 0 0 1.5-1.5V8h1a.5.5 0 0 0 .354-.854l-6-6Z"/>
-          </svg>
-          {t('client_view.home')}
-        </Link>
-        <LangToggle />
-      </div>
+      <Topbar
+        title={t('dashboard.brand')}
+        subtitle={t('dashboard.studio')}
+        actions={[<LangToggle key="lang" />]}
+      />
       <div className="flex-1 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo mark */}
@@ -193,20 +190,26 @@ function ResultCard({ client, onBack }) {
   const { name, passes } = client
   const hasWarning = passes.some(p => p.remaining <= 2)
   const [visible, setVisible] = useState(0)
+  const [tab,     setTab]     = useState('passes')
 
   useEffect(() => {
     const t1 = setTimeout(() => setVisible(1), 200)
     const t2 = setTimeout(() => setVisible(2), 700)
-    const t3 = setTimeout(() => setVisible(3), 1100)
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
 
+  const tabBtn = active =>
+    `flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+      active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+    }`
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
-      <div className="w-full max-w-sm">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          {/* Header strip */}
-          <div className={`bg-gray-50 border-b border-gray-100 px-6 py-4 transition-opacity duration-1000 ${visible >= 1 ? 'opacity-100' : 'opacity-0'}`}>
+    <div className="min-h-screen bg-gray-50 px-4 py-8">
+      <div className="w-full max-w-sm mx-auto space-y-3">
+
+        {/* Header card: back + name + tabs */}
+        <div className={`bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden transition-opacity duration-1000 ${visible >= 1 ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="bg-gray-50 border-b border-gray-100 px-6 py-4">
             <button
               onClick={onBack}
               className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors"
@@ -218,32 +221,48 @@ function ResultCard({ client, onBack }) {
             </button>
           </div>
 
-          {/* Name */}
-          <div className={`px-6 pt-6 pb-4 text-center transition-opacity duration-1000 ${visible >= 1 ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="px-6 pt-5 pb-4 text-center">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-1">{t('client_view.welcome_back')}</p>
             <h2 className="text-2xl font-bold text-gray-900">{name}</h2>
           </div>
 
-          {/* Product cards */}
-          <div className={`px-4 pb-4 space-y-3 transition-opacity duration-1000 ${visible >= 2 ? 'opacity-100' : 'opacity-0'}`}>
-            {passes.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-6">{t('client_view.no_passes')}</p>
-            ) : (
-              passes.map(p => (
-                <PassCard key={p.product_name} product_name={p.product_name} remaining={p.remaining} />
-              ))
-            )}
-          </div>
-
-          {/* Footer warning */}
-          {hasWarning && (
-            <div className={`border-t border-amber-100 bg-amber-50 px-6 py-4 text-center transition-opacity duration-1000 ${visible >= 3 ? 'opacity-100' : 'opacity-0'}`}>
-              <p className="text-sm font-medium text-amber-700">
-                {t('client_view.low_warning')}
-              </p>
+          {/* Tab toggle */}
+          <div className="px-4 pb-4">
+            <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+              <button className={tabBtn(tab === 'passes')}   onClick={() => setTab('passes')}>
+                {t('client_view.tab_passes')}
+              </button>
+              <button className={tabBtn(tab === 'schedule')} onClick={() => setTab('schedule')}>
+                {t('client_view.tab_schedule')}
+              </button>
             </div>
+          </div>
+        </div>
+
+        {/* Tab content */}
+        <div className={`transition-opacity duration-1000 ${visible >= 2 ? 'opacity-100' : 'opacity-0'}`}>
+          {tab === 'passes' ? (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="px-4 py-4 space-y-3">
+                {passes.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-6">{t('client_view.no_passes')}</p>
+                ) : (
+                  [...passes].sort((a, b) => (b.remaining === 0) - (a.remaining === 0) || a.remaining - b.remaining).map(p => (
+                    <PassCard key={p.product_name} product_name={p.product_name} remaining={p.remaining} />
+                  ))
+                )}
+              </div>
+              {hasWarning && (
+                <div className="border-t border-amber-100 bg-amber-50 px-6 py-4 text-center">
+                  <p className="text-sm font-medium text-amber-700">{t('client_view.low_warning')}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Schedule clientId={client.id} />
           )}
         </div>
+
       </div>
     </div>
   )

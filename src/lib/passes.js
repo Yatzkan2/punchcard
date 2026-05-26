@@ -40,6 +40,17 @@ export async function getClientNamesForProduct(productId) {
   return data.map(p => p.clients.name)
 }
 
+export async function getClientsWithPass(productId) {
+  const { data, error } = await supabase
+    .from('passes')
+    .select('remaining, clients(id, name)')
+    .eq('product_id', productId)
+  if (error) throw error
+  return data
+    .map(p => ({ ...p.clients, remaining: p.remaining }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export async function removePass(clientId, productId) {
   const { error } = await supabase
     .from('passes')

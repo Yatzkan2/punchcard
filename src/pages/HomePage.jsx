@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import LangToggle from '../components/shared/LangToggle'
+import Topbar from '../components/shared/Topbar'
 
 export default function HomePage() {
   const { t } = useTranslation()
@@ -16,9 +17,11 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="flex justify-end px-6 pt-5">
-        <LangToggle />
-      </div>
+      <Topbar
+        title={t('dashboard.brand')}
+        subtitle={t('dashboard.studio')}
+        actions={[<LangToggle key="lang" />]}
+      />
       <div className="flex-1 flex flex-col items-center justify-center gap-2">
         <h1 className={`text-2xl font-semibold text-gray-900 transition-opacity duration-1000 ${visible >= 1 ? 'opacity-100' : 'opacity-0'}`}>
           {t('home.welcome')}

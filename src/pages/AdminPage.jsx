@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useTranslation, Trans } from 'react-i18next'
 import supabase from '../supabase'
 import { getAllClients, addClient as addClientFn, removeClient, incrementEntries } from '../lib/clients'
@@ -9,6 +10,7 @@ import Dialog from '../components/admin/Dialog'
 import Spinner from '../components/shared/Spinner'
 import TrashIcon from '../components/shared/TrashIcon'
 import LangToggle from '../components/shared/LangToggle'
+import Topbar from '../components/shared/Topbar'
 
 const UNAMBIGUOUS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 
@@ -100,6 +102,7 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
   const [addProductId, setAddProductId]   = useState('')
   const [addCount, setAddCount]           = useState(10)
   const [addingPass, setAddingPass]       = useState(false)
+  const [passListRef] = useAutoAnimate()
 
   const assignedIds     = new Set(client.passes.map(p => p.product_id))
   const availableForAdd = products.filter(p => !assignedIds.has(p.id))
@@ -227,11 +230,11 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
         </div>
 
         {/* Per-product pass rows */}
-        <div className="mt-2 ltr:ml-12 rtl:mr-12 space-y-2">
+        <div ref={passListRef} className="mt-2 ltr:ml-12 rtl:mr-12 space-y-2">
           {client.passes.length === 0 && (
             <p className="text-xs text-gray-400">{t('passes.none_assigned')}</p>
           )}
-          {client.passes.map(pass => {
+          {[...client.passes].sort((a, b) => (a.remaining === 0) - (b.remaining === 0)).map(pass => {
             const isEditing  = editingPassId === pass.id
             const passColor  = pass.remaining === 0 ? 'text-red-600' : pass.remaining <= 2 ? 'text-amber-500' : 'text-gray-800'
 
@@ -659,28 +662,19 @@ function Dashboard({ session }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top bar */}
-      <header className="bg-white border-b border-gray-200 px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="text-gray-300 hover:text-gray-500 transition-colors" title={t('client_view.home')}>
-            <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 8h1v5.5A1.5 1.5 0 0 0 4 15h2.5v-3.5h3V15H12a1.5 1.5 0 0 0 1.5-1.5V8h1a.5.5 0 0 0 .354-.854l-6-6Z"/>
-            </svg>
-          </Link>
-          <span className="font-semibold text-gray-900 text-sm">{t('dashboard.brand')}</span>
-          <span className="text-xs text-gray-400">{t('dashboard.studio')}</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-xs text-gray-400 hidden sm:block truncate max-w-48">{session.user.email}</span>
-          <LangToggle />
-          <button
-            onClick={() => supabase.auth.signOut()}
-            className="text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
-          >
-            {t('auth.sign_out')}
-          </button>
-        </div>
-      </header>
+      <Topbar
+        title={t('dashboard.brand')}
+        subtitle={t('dashboard.studio')}
+        nav={[
+          <span key="clients" className="text-xs font-medium text-indigo-600">{t('dashboard.nav_clients')}</span>,
+          <Link key="schedule" to="/admin/schedule" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_schedule')}</Link>,
+        ]}
+        actions={[
+          <span key="email" className="text-xs text-gray-400 truncate max-w-48">{session.user.email}</span>,
+          <LangToggle key="lang" />,
+          { label: t('auth.sign_out'), onClick: () => supabase.auth.signOut() },
+        ]}
+      />
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
         {/* Stats */}

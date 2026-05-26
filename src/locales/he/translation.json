@@ -19,7 +19,9 @@
     "stat_total_clients": "סה״כ לקוחות",
     "stat_active_passes": "כרטיסיות פעילות",
     "stat_need_renewal": "זקוקות לחידוש",
-    "failed_to_load": "טעינת הלקוחות נכשלה."
+    "failed_to_load": "טעינת הלקוחות נכשלה.",
+    "nav_clients": "לקוחות",
+    "nav_schedule": "לוח זמנים"
   },
   "products": {
     "section_title": "מוצרים",
@@ -84,6 +86,42 @@
     "remove_dialog_body": "להסיר את כרטיסיות {{product}} עבור {{name}}? לא ניתן לבטל פעולה זו.",
     "remove_confirm": "הסר"
   },
+  "schedule": {
+    "new_slot": "שיעור חדש",
+    "edit_slot": "עריכת שיעור",
+    "label_date": "תאריך",
+    "label_time": "שעה",
+    "label_activity": "פעילות",
+    "activity_none": "— ללא —",
+    "label_capacity": "מספר משתתפים",
+    "label_notes": "הערות",
+    "optional": "(אופציונלי)",
+    "notes_placeholder": "לדוגמה: להביא מזרן",
+    "create": "צור שיעור",
+    "creating": "יוצר…",
+    "save": "שמור שינויים",
+    "saving": "שומר…",
+    "edit": "עריכה",
+    "delete": "מחיקה",
+    "no_slots": "אין שיעורים השבוע.",
+    "delete_title": "מחיקת שיעור",
+    "delete_confirm": "מחק",
+    "delete_body": "למחוק לצמיתות את שיעור {{datetime}}? ההרשמות יוסרו גם הן.",
+    "attendance_title": "נוכחות",
+    "unnamed": "ללא שם",
+    "stats": "{{registered}} רשומים · {{attended}} נכחו",
+    "no_clients": "אין לקוחות עם כרטיסייה לפעילות זו.",
+    "passes_left": "{{count}} נותרו",
+    "registered": "רשום",
+    "attended": "נכח",
+    "you_are_in": "אתה רשום ✓",
+    "full": "מלא",
+    "spots_left": "{{count}} מקומות",
+    "no_classes": "אין שיעורים מתוכננים השבוע.",
+    "add_client": "הוסף לקוח…",
+    "loading": "טוען…",
+    "participants": "משתתפים"
+  },
   "client_view": {
     "home": "בית",
     "lookup_title": "בדוק את הכרטיסיות שלך",
@@ -101,6 +139,8 @@
     "welcome_back": "ברוך שובך",
     "check_another": "בדוק קוד אחר",
     "no_passes": "לא הוקצו כרטיסיות עדיין.",
-    "low_warning": "אחת או יותר מהכרטיסיות עומדות להסתיים — צור קשר עם הסטודיו בקרוב."
+    "low_warning": "אחת או יותר מהכרטיסיות עומדות להסתיים — צור קשר עם הסטודיו בקרוב.",
+    "tab_passes": "הכרטיסיות שלי",
+    "tab_schedule": "לוח שיעורים"
   }
 }

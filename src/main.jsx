@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import AdminPage from './pages/AdminPage.jsx'
+import AdminSchedule from './pages/AdminSchedule.jsx'
 import ClientPage from './pages/ClientPage.jsx'
 import HomePage from './pages/HomePage.jsx'
 
@@ -13,6 +14,7 @@ createRoot(document.getElementById('root')).render(
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin/schedule" element={<AdminSchedule />} />
         <Route path="/client" element={<ClientPage />} />
       </Routes>
     </BrowserRouter>

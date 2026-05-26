@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export default function Dialog({ title, children, confirmLabel = 'Confirm', danger = false, disabled = false, onConfirm, onCancel }) {
+  const { t } = useTranslation()
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onCancel() }
     document.addEventListener('keydown', onKey)
@@ -20,7 +22,7 @@ export default function Dialog({ title, children, confirmLabel = 'Confirm', dang
             onClick={onCancel}
             className="px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"
           >
-            Cancel
+            {t('passes.cancel')}
           </button>
           <button
             onClick={onConfirm}
