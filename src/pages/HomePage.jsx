@@ -20,7 +20,7 @@ export default function HomePage() {
       <Topbar
         title={t('dashboard.brand')}
         subtitle={t('dashboard.studio')}
-        actions={[<LangToggle key="lang" />]}
+        langToggle={<LangToggle />}
       />
       <div className="flex-1 flex flex-col items-center justify-center gap-2">
         <h1 className={`text-2xl font-semibold text-gray-900 transition-opacity duration-1000 ${visible >= 1 ? 'opacity-100' : 'opacity-0'}`}>

@@ -33,7 +33,9 @@
     "remove_dialog_body": "Permanently delete <strong>{{name}}</strong>? This cannot be undone.",
     "remove_confirm": "Remove",
     "delete_blocked_one": "Cannot delete \"{{name}}\" — 1 client still holds passes: {{holders}}.",
-    "delete_blocked_many": "Cannot delete \"{{name}}\" — {{count}} clients still hold passes: {{holders}}."
+    "delete_blocked_many": "Cannot delete \"{{name}}\" — {{count}} clients still hold passes: {{holders}}.",
+    "delete_blocked_slots_one": "Cannot delete \"{{name}}\" — it is linked to 1 slot. Remove or reassign that slot first.",
+    "delete_blocked_slots_many": "Cannot delete \"{{name}}\" — it is linked to {{count}} slots. Remove or reassign those slots first."
   },
   "clients": {
     "section_title": "Clients",
@@ -118,6 +120,7 @@
     "full": "Full",
     "spots_left": "{{count}} left",
     "no_classes": "No classes scheduled this week.",
+    "add_slot": "Add new slot",
     "add_client": "Add client…",
     "loading": "Loading…",
     "participants": "Participants",

@@ -5,6 +5,7 @@ import supabase from '../supabase'
 import { getAllClients, addClient as addClientFn, removeClient, incrementEntries } from '../lib/clients'
 import { getProducts, addProduct, removeProduct } from '../lib/products'
 import { upsertPass, removePass, getClientNamesForProduct } from '../lib/passes'
+import { getSlotCountForProduct } from '../lib/slots'
 import { Link } from 'react-router-dom'
 import Dialog from '../components/admin/Dialog'
 import Spinner from '../components/shared/Spinner'
@@ -495,7 +496,18 @@ function ProductsSection({ products, onProductsChange }) {
     const { id, name } = pendingRemove
     setPendingRemove(null)
     try {
-      const holders = await getClientNamesForProduct(id)
+      const [holders, slotCount] = await Promise.all([
+        getClientNamesForProduct(id),
+        getSlotCountForProduct(id),
+      ])
+      if (slotCount > 0) {
+        showError(
+          slotCount === 1
+            ? t('products.delete_blocked_slots_one', { name })
+            : t('products.delete_blocked_slots_many', { name, count: slotCount })
+        )
+        return
+      }
       if (holders.length > 0) {
         showError(
           holders.length === 1
@@ -669,11 +681,8 @@ function Dashboard({ session }) {
           <span key="clients" className="text-xs font-medium text-indigo-600">{t('dashboard.nav_clients')}</span>,
           <Link key="schedule" to="/admin/schedule" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_schedule')}</Link>,
         ]}
-        actions={[
-          <span key="email" className="text-xs text-gray-400 truncate max-w-48">{session.user.email}</span>,
-          <LangToggle key="lang" />,
-          { label: t('auth.sign_out'), onClick: () => supabase.auth.signOut() },
-        ]}
+        langToggle={<LangToggle />}
+        actions={[{ label: t('auth.sign_out'), onClick: () => supabase.auth.signOut() }]}
       />
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">

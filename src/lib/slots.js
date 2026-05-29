@@ -46,6 +46,15 @@ export async function deleteSlot(id) {
   if (error) throw error
 }
 
+export async function getSlotCountForProduct(productId) {
+  const { count, error } = await supabase
+    .from('slots')
+    .select('id', { count: 'exact', head: true })
+    .eq('product_id', productId)
+  if (error) throw error
+  return count ?? 0
+}
+
 export async function getSlotWithRegistrations(id) {
   const { data, error } = await supabase
     .from('slots')

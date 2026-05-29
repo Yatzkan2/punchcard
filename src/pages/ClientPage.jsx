@@ -81,7 +81,7 @@ function LookupCard({ onFound }) {
       <Topbar
         title={t('dashboard.brand')}
         subtitle={t('dashboard.studio')}
-        actions={[<LangToggle key="lang" />]}
+        langToggle={<LangToggle />}
       />
       <div className="flex-1 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">

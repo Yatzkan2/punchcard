@@ -1,6 +1,6 @@
 {
   "home": {
-    "welcome": "ברוכים הבאים ל-StudioNitzk",
+    "welcome": "ברוכות הבאות לסטודיו ניצק",
     "tagline": "המקום שלך לזוז, להתחזק ולהרגיש טוב.",
     "cta": "בדוק את הכרטיסיות שלי"
   },
@@ -33,7 +33,9 @@
     "remove_dialog_body": "למחוק לצמיתות את <strong>{{name}}</strong>? לא ניתן לבטל פעולה זו.",
     "remove_confirm": "הסר",
     "delete_blocked_one": "לא ניתן למחוק את \"{{name}}\" — לקוח אחד עדיין מחזיק כרטיסיות: {{holders}}.",
-    "delete_blocked_many": "לא ניתן למחוק את \"{{name}}\" — {{count}} לקוחות עדיין מחזיקים כרטיסיות: {{holders}}."
+    "delete_blocked_many": "לא ניתן למחוק את \"{{name}}\" — {{count}} לקוחות עדיין מחזיקים כרטיסיות: {{holders}}.",
+    "delete_blocked_slots_one": "לא ניתן למחוק את \"{{name}}\" — הוא משויך לשיעור אחד. הסר או עדכן את השיעור תחילה.",
+    "delete_blocked_slots_many": "לא ניתן למחוק את \"{{name}}\" — הוא משויך ל-{{count}} שיעורים. הסר או עדכן אותם תחילה."
   },
   "clients": {
     "section_title": "לקוחות",
@@ -118,6 +120,7 @@
     "full": "מלא",
     "spots_left": "{{count}} מקומות",
     "no_classes": "אין שיעורים מתוכננים השבוע.",
+    "add_slot": "הוסף שיעור חדש",
     "add_client": "הוסף לקוח…",
     "loading": "טוען…",
     "participants": "משתתפים",

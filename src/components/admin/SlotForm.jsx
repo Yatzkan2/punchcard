@@ -191,8 +191,8 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
           {isEdit ? t('schedule.edit_slot') : t('schedule.new_slot')}
         </p>
-        {isEdit && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          {isEdit && (
             <button
               type="button"
               onClick={() => setConfirmingDelete(true)}
@@ -202,11 +202,13 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
             >
               <TrashIcon className="w-3.5 h-3.5" />
             </button>
+          )}
+          {onCancel && (
             <button type="button" onClick={onCancel} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
               {t('passes.cancel')}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
