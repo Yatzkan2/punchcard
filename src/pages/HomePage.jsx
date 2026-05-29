@@ -22,7 +22,7 @@ export default function HomePage() {
         subtitle={t('dashboard.studio')}
         langToggle={<LangToggle />}
       />
-      <div className="flex-1 flex flex-col items-center justify-center gap-2">
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 relative">
         <h1 className={`text-2xl font-semibold text-gray-900 transition-opacity duration-1000 ${visible >= 1 ? 'opacity-100' : 'opacity-0'}`}>
           {t('home.welcome')}
         </h1>
@@ -37,6 +37,13 @@ export default function HomePage() {
             {t('home.cta')}
           </Link>
         </div>
+        <Link
+          to="/admin"
+          className="absolute bottom-3 ltr:right-3 rtl:left-3 text-[10px] text-gray-400 hover:text-gray-600 transition-colors select-none"
+          tabIndex={-1}
+        >
+          admin
+        </Link>
       </div>
     </div>
   )
