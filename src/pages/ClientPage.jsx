@@ -270,11 +270,49 @@ function ResultCard({ client, onBack }) {
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
+const STORAGE_KEY = 'studio_client'
+const SEVEN_DAYS  = 7 * 24 * 60 * 60 * 1000
+
 export default function ClientPage() {
-  const [client, setClient] = useState(null)
+  const [client,      setClient]      = useState(null)
+  const [autoLoading, setAutoLoading] = useState(true)
+
+  useEffect(() => {
+    async function tryAutoLookup() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (!raw) return
+        const { code, lastSeen } = JSON.parse(raw)
+        if (Date.now() - lastSeen >= SEVEN_DAYS) {
+          localStorage.removeItem(STORAGE_KEY)
+          return
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ code, lastSeen: Date.now() }))
+        const result = await getClientByCode(code)
+        setClient(result)
+      } catch {
+        localStorage.removeItem(STORAGE_KEY)
+      } finally {
+        setAutoLoading(false)
+      }
+    }
+    tryAutoLookup()
+  }, [])
+
+  function handleFound(result) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ code: result.code, lastSeen: Date.now() }))
+    setClient(result)
+  }
+
+  function handleBack() {
+    localStorage.removeItem(STORAGE_KEY)
+    setClient(null)
+  }
+
+  if (autoLoading) return null
 
   if (client) {
-    return <ResultCard client={client} onBack={() => setClient(null)} />
+    return <ResultCard client={client} onBack={handleBack} />
   }
-  return <LookupCard onFound={setClient} />
+  return <LookupCard onFound={handleFound} />
 }
