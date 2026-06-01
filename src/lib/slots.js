@@ -16,11 +16,11 @@ export async function getSlotsByWeek(startDate) {
   return data
 }
 
-export async function createSlot(date, time, productId, capacity, notes) {
+export async function createSlot(date, time, productId, capacity, notes, cancellationCutoffHours = 0) {
   const starts_at = new Date(`${date}T${time}`).toISOString()
   const { data, error } = await supabase
     .from('slots')
-    .insert({ starts_at, product_id: productId || null, capacity, notes: notes || null })
+    .insert({ starts_at, product_id: productId || null, capacity, notes: notes || null, cancellation_cutoff_hours: cancellationCutoffHours })
     .select('*, products!slots_product_id_fkey(id, name)')
     .single()
   if (error) throw error
@@ -53,6 +53,13 @@ export async function getSlotCountForProduct(productId) {
     .eq('product_id', productId)
   if (error) throw error
   return count ?? 0
+}
+
+export function canClientCancel(slot) {
+  if (!slot.cancellation_cutoff_hours) return true
+  const cutoff = new Date(slot.starts_at)
+  cutoff.setHours(cutoff.getHours() - slot.cancellation_cutoff_hours)
+  return new Date() < cutoff
 }
 
 export async function getSlotWithRegistrations(id) {

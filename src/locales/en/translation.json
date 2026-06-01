@@ -100,6 +100,8 @@
     "activity_none": "— None —",
     "label_capacity": "Number of participants",
     "label_notes": "Notes",
+    "cancellation_cutoff_label": "Cancellation cutoff (hours)",
+    "cancellation_cutoff_hint": "0 = cancellation always allowed",
     "optional": "(optional)",
     "notes_placeholder": "e.g. bring a mat",
     "create": "Create slot",
@@ -129,7 +131,12 @@
     "participants": "Participants",
     "unregister_title": "Remove registration",
     "unregister_body": "Remove {{name}} from this slot?",
-    "unregister_confirm": "Remove"
+    "unregister_confirm": "Remove",
+    "register": "Register",
+    "cancel_registration": "Cancel",
+    "cancellation_closed": "Cancellation closed",
+    "register_confirm_title": "Register for class?",
+    "register_confirm_body": "Register for {{activity}}?"
   },
   "client_view": {
     "home": "Home",

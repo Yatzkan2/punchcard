@@ -18,11 +18,12 @@ function today() {
 function slotToFields(slot) {
   const d = new Date(slot.starts_at)
   return {
-    date:      d.toLocaleDateString('en-CA'),
-    time:      `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
-    productId: slot.product_id ?? '',
-    capacity:  slot.capacity,
-    notes:     slot.notes ?? '',
+    date:                    d.toLocaleDateString('en-CA'),
+    time:                    `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+    productId:               slot.product_id ?? '',
+    capacity:                slot.capacity,
+    notes:                   slot.notes ?? '',
+    cancellationCutoffHours: slot.cancellation_cutoff_hours ?? 0,
   }
 }
 
@@ -32,13 +33,14 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
   const locale = i18n.language === 'he' ? 'he-IL' : 'en-GB'
   const isEdit = !!slot
 
-  const init = isEdit ? slotToFields(slot) : { date: today(), time: '09:00', productId: '', capacity: 10, notes: '' }
+  const init = isEdit ? slotToFields(slot) : { date: today(), time: '09:00', productId: '', capacity: 10, notes: '', cancellationCutoffHours: 12 }
 
-  const [date,      setDate]      = useState(init.date)
-  const [time,      setTime]      = useState(init.time)
-  const [productId, setProductId] = useState(init.productId)
-  const [capacity,  setCapacity]  = useState(init.capacity)
-  const [notes,     setNotes]     = useState(init.notes)
+  const [date,                    setDate]                    = useState(init.date)
+  const [time,                    setTime]                    = useState(init.time)
+  const [productId,               setProductId]               = useState(init.productId)
+  const [capacity,                setCapacity]                = useState(init.capacity)
+  const [notes,                   setNotes]                   = useState(init.notes)
+  const [cancellationCutoffHours, setCancellationCutoffHours] = useState(init.cancellationCutoffHours)
   const [products,  setProducts]  = useState([])
   const [saving,    setSaving]    = useState(false)
   const [error,     setError]     = useState('')
@@ -72,18 +74,20 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
         const starts_at = new Date(`${date}T${time}`).toISOString()
         const updated = await updateSlot(slot.id, {
           starts_at,
-          product_id: productId || null,
-          capacity:   Number(capacity),
-          notes:      notes.trim() || null,
+          product_id:                productId || null,
+          capacity:                  Number(capacity),
+          notes:                     notes.trim() || null,
+          cancellation_cutoff_hours: Number(cancellationCutoffHours),
         })
         onSaved?.(updated)
       } else {
-        const created = await createSlot(date, time, productId || null, Number(capacity), notes.trim() || null)
+        const created = await createSlot(date, time, productId || null, Number(capacity), notes.trim() || null, Number(cancellationCutoffHours))
         setDate(today())
         setTime('09:00')
         setProductId('')
         setCapacity(10)
         setNotes('')
+        setCancellationCutoffHours(12)
         onCreated?.(created)
       }
     } catch (err) {
@@ -238,6 +242,15 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
           type="number" min={1} max={999} value={capacity}
           onChange={e => setCapacity(e.target.value)} required className={INPUT}
         />
+      </div>
+
+      <div>
+        <label className={LABEL}>{t('schedule.cancellation_cutoff_label')}</label>
+        <input
+          type="number" min={0} value={cancellationCutoffHours}
+          onChange={e => setCancellationCutoffHours(e.target.value)} required className={INPUT}
+        />
+        <p className="text-xs text-gray-400 mt-1">{t('schedule.cancellation_cutoff_hint')}</p>
       </div>
 
       <div>

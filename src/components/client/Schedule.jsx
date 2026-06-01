@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getSlotsByWeek } from '../../lib/slots'
+import { getSlotsByWeek, canClientCancel } from '../../lib/slots'
+import { registerClient, unregisterClient } from '../../lib/registrations'
 import WeekNav from '../shared/WeekNav'
 import Spinner from '../shared/Spinner'
 
@@ -14,7 +15,7 @@ function mondayOf(date) {
 
 function localDateKey(isoString) {
   const d = new Date(isoString)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '00')}-${String(d.getDate()).padStart(2, '00')}`
 }
 
 function groupByDay(slots) {
@@ -27,48 +28,148 @@ function groupByDay(slots) {
   return map
 }
 
-function SlotRow({ slot, clientId, locale, t }) {
-  const now        = new Date()
-  const startsAt   = new Date(slot.starts_at)
-  const isPast     = startsAt < now
+function RegisterConfirmDialog({ slot, t, onConfirm, onCancel }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs space-y-4"
+        onClick={e => e.stopPropagation()}
+      >
+        <p className="text-sm font-semibold text-gray-800">
+          {t('schedule.register_confirm_title')}
+        </p>
+        <p className="text-sm text-gray-500">
+          {t('schedule.register_confirm_body', { activity: slot.products?.name ?? '—' })}
+        </p>
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={onCancel}
+            className="text-sm text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            {t('passes.cancel')}
+          </button>
+          <button
+            onClick={onConfirm}
+            className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            {t('schedule.register')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SlotRow({ slot, clientId, locale, t, onRegister, onUnregister }) {
+  const now          = new Date()
+  const startsAt     = new Date(slot.starts_at)
+  const isPast       = startsAt < now
   const isRegistered = slot.slot_registrations?.some(r => r.clients?.id === clientId)
-  const spotsLeft  = slot.capacity - (slot.slot_registrations?.length ?? 0)
-  const isFull     = spotsLeft <= 0
+  const spotsLeft    = slot.capacity - (slot.slot_registrations?.length ?? 0)
+  const isFull       = spotsLeft <= 0
+
+  const [confirming, setConfirming] = useState(false)
+  const [busy,       setBusy]       = useState(false)
+  const [rowError,   setRowError]   = useState('')
 
   const time = new Intl.DateTimeFormat(locale, {
     hour: '2-digit', minute: '2-digit', hour12: false,
   }).format(startsAt)
 
+  async function doRegister() {
+    setConfirming(false)
+    setBusy(true)
+    setRowError('')
+    try {
+      await onRegister(slot.id)
+    } catch (err) {
+      setRowError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function doUnregister() {
+    setBusy(true)
+    setRowError('')
+    try {
+      await onUnregister(slot.id)
+    } catch (err) {
+      setRowError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 ${isPast ? 'opacity-40' : ''}`}>
-      {/* Time */}
-      <span className="text-sm font-mono text-gray-500 w-11 shrink-0">{time}</span>
+    <>
+      {confirming && (
+        <RegisterConfirmDialog
+          slot={slot}
+          t={t}
+          onConfirm={doRegister}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
+      <div className={`flex items-center gap-3 px-4 py-3 ${isPast ? 'opacity-40' : ''}`}>
+        {/* Time */}
+        <span className="text-sm font-mono text-gray-500 w-11 shrink-0">{time}</span>
 
-      {/* Product + spots */}
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium truncate ${isPast ? 'text-gray-400' : 'text-gray-800'}`}>
-          {slot.products?.name ?? '—'}
-        </p>
-        {slot.notes && (
-          <p className="text-xs text-gray-400 truncate mt-0.5">{slot.notes}</p>
-        )}
-      </div>
+        {/* Product + notes + error */}
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-medium truncate ${isPast ? 'text-gray-400' : 'text-gray-800'}`}>
+            {slot.products?.name ?? '—'}
+          </p>
+          {slot.notes && (
+            <p className="text-xs text-gray-400 truncate mt-0.5">{slot.notes}</p>
+          )}
+          {rowError && (
+            <p className="text-xs text-red-500 mt-0.5">{rowError}</p>
+          )}
+        </div>
 
-      {/* Badge / spots */}
-      <div className="shrink-0">
-        {isRegistered ? (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-green-50 text-green-700 ring-1 ring-green-200">
-            {t('schedule.you_are_in')}
-          </span>
-        ) : isFull ? (
-          <span className="text-xs text-red-400 font-medium">{t('schedule.full')}</span>
-        ) : (
-          <span className={`text-xs tabular-nums ${spotsLeft <= 3 ? 'text-amber-500 font-medium' : 'text-gray-400'}`}>
-            {t('schedule.spots_left', { count: spotsLeft })}
-          </span>
-        )}
+        {/* Action area */}
+        <div className="shrink-0 flex items-center gap-2">
+          {busy ? (
+            <Spinner className="w-4 h-4 text-gray-400" />
+          ) : isRegistered ? (
+            canClientCancel(slot) ? (
+              <button
+                onClick={doUnregister}
+                className="text-xs font-medium text-red-500 hover:text-red-700 transition-colors px-2 py-0.5 rounded-full border border-red-200 hover:border-red-300"
+              >
+                {t('schedule.cancel_registration')}
+              </button>
+            ) : (
+              <span className="text-xs text-gray-400 italic">
+                {t('schedule.cancellation_closed')}
+              </span>
+            )
+          ) : isFull ? (
+            <span className="text-xs text-red-400 font-medium">{t('schedule.full')}</span>
+          ) : isPast ? (
+            <span className="text-xs tabular-nums text-gray-400">
+              {t('schedule.spots_left', { count: spotsLeft })}
+            </span>
+          ) : (
+            <>
+              <span className={`text-xs tabular-nums ${spotsLeft <= 3 ? 'text-amber-500 font-medium' : 'text-gray-400'}`}>
+                {t('schedule.spots_left', { count: spotsLeft })}
+              </span>
+              <button
+                onClick={() => setConfirming(true)}
+                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors px-2 py-0.5 rounded-full border border-indigo-200 hover:border-indigo-300"
+              >
+                {t('schedule.register')}
+              </button>
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
@@ -100,6 +201,16 @@ export default function Schedule({ clientId }) {
   }
   function nextWeek() {
     setWeekStart(prev => { const d = new Date(prev); d.setDate(d.getDate() + 7); return d })
+  }
+
+  async function handleRegister(slotId) {
+    await registerClient(slotId, clientId)
+    await load()
+  }
+
+  async function handleUnregister(slotId) {
+    await unregisterClient(slotId, clientId)
+    await load()
   }
 
   const dayFmt = new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'short' })
@@ -138,6 +249,8 @@ export default function Schedule({ clientId }) {
                   clientId={clientId}
                   locale={locale}
                   t={t}
+                  onRegister={handleRegister}
+                  onUnregister={handleUnregister}
                 />
               ))}
             </div>

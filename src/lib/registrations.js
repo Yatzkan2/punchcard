@@ -19,6 +19,17 @@ export async function unregisterClient(slotId, clientId) {
   if (error) throw error
 }
 
+export async function getRegistrationForClient(slotId, clientId) {
+  const { data, error } = await supabase
+    .from('slot_registrations')
+    .select()
+    .eq('slot_id', slotId)
+    .eq('client_id', clientId)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
 export async function markAttended(slotId, clientId, attended) {
   const { data, error } = await supabase
     .from('slot_registrations')
