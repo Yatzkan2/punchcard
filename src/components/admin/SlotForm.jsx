@@ -226,14 +226,14 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="min-w-0">
           <label className={LABEL}>{t('schedule.label_date')}</label>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)} required className={INPUT} />
+          <input type="date" dir="ltr" value={date} onChange={e => setDate(e.target.value)} required className={INPUT} />
         </div>
-        <div>
+        <div className="min-w-0">
           <label className={LABEL}>{t('schedule.label_time')}</label>
-          <input type="time" value={time} onChange={e => setTime(e.target.value)} required className={INPUT} />
+          <input type="time" dir="ltr" value={time} onChange={e => setTime(e.target.value)} required className={INPUT} />
         </div>
       </div>
 

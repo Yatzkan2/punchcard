@@ -9,11 +9,10 @@ import LangToggle from '../components/shared/LangToggle'
 import Topbar from '../components/shared/Topbar'
 import { useSettings } from '../lib/SettingsContext'
 
-function mondayOf(date) {
+function sundayOf(date) {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
-  const day = d.getDay()
-  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1))
+  d.setDate(d.getDate() - d.getDay())
   return d
 }
 
@@ -23,7 +22,7 @@ export default function AdminSchedule() {
   const settings = useSettings()
 
   const [session,       setSession]       = useState(null)
-  const [weekStart,     setWeekStart]     = useState(() => mondayOf(new Date()))
+  const [weekStart,     setWeekStart]     = useState(() => sundayOf(new Date()))
   const [editingSlot,   setEditingSlot]   = useState(null)
   const [creatingSlot,  setCreatingSlot]  = useState(false)
   const [listKey,       setListKey]       = useState(0)

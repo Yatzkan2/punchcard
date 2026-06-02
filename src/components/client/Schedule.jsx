@@ -5,11 +5,10 @@ import { registerClient, unregisterClient } from '../../lib/registrations'
 import WeekNav from '../shared/WeekNav'
 import Spinner from '../shared/Spinner'
 
-function mondayOf(date) {
+function sundayOf(date) {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
-  const day = d.getDay()
-  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1))
+  d.setDate(d.getDate() - d.getDay())
   return d
 }
 
@@ -177,7 +176,7 @@ export default function Schedule({ clientId }) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language === 'he' ? 'he-IL' : 'en-GB'
 
-  const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()))
+  const [weekStart, setWeekStart] = useState(() => sundayOf(new Date()))
   const [slots,     setSlots]     = useState([])
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState('')
