@@ -6,6 +6,8 @@ import { getAllClients, addClient as addClientFn, removeClient, incrementEntries
 import { getProducts, addProduct, removeProduct } from '../lib/products'
 import { upsertPass, removePass, getClientNamesForProduct } from '../lib/passes'
 import { getSlotCountForProduct } from '../lib/slots'
+import { getSetting } from '../lib/settings'
+import { useSettings } from '../lib/SettingsContext'
 import { Link } from 'react-router-dom'
 import Dialog from '../components/admin/Dialog'
 import Spinner from '../components/shared/Spinner'
@@ -90,7 +92,7 @@ function LoginCard() {
 
 // ─── Client row ───────────────────────────────────────────────────────────────
 
-function ClientRow({ client, products, onUpdate, onRemove }) {
+function ClientRow({ client, products, clientAppUrl, onUpdate, onRemove }) {
   const { t } = useTranslation()
   const entries = client.entries ?? 0
   const [copied, setCopied]             = useState(false)
@@ -134,7 +136,8 @@ function ClientRow({ client, products, onUpdate, onRemove }) {
   }
 
   async function handleCopyMessage() {
-    const text = t('clients.copy_message', { name: client.name.split(' ')[0], code: client.code })
+    const url  = clientAppUrl || (window.location.origin + '/client')
+    const text = t('clients.copy_message', { name: client.name.split(' ')[0], code: client.code, url })
     try {
       await navigator.clipboard.writeText(text)
     } catch {
@@ -612,13 +615,21 @@ function ProductsSection({ products, onProductsChange }) {
 
 function Dashboard({ session }) {
   const { t } = useTranslation()
-  const [clients, setClients] = useState([])
-  const [fetchError, setFetchError] = useState('')
-  const [products, setProducts] = useState([])
+  const settings = useSettings()
+  const [clients,       setClients]       = useState([])
+  const [fetchError,    setFetchError]    = useState('')
+  const [products,      setProducts]      = useState([])
+  const [clientAppUrl,  setClientAppUrl]  = useState('')
 
   async function fetchProducts() {
     try { setProducts(await getProducts()) } catch { /* non-critical */ }
   }
+
+  useEffect(() => {
+    getSetting('client_app_url')
+      .then(val => setClientAppUrl(val || ''))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => { fetchProducts() }, [])
   const [firstName, setFirstName] = useState('')
@@ -707,10 +718,11 @@ function Dashboard({ session }) {
     <div className="min-h-screen bg-gray-50">
       <Topbar
         title={t('dashboard.brand')}
-        subtitle={t('dashboard.studio')}
+        subtitle={settings.studio_name || t('dashboard.studio')}
         nav={[
           <span key="clients" className="text-xs font-medium text-indigo-600">{t('dashboard.nav_clients')}</span>,
           <Link key="schedule" to="/admin/schedule" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_schedule')}</Link>,
+          <Link key="settings" to="/admin/settings" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_settings')}</Link>,
         ]}
         langToggle={<LangToggle />}
         actions={[{ label: t('auth.sign_out'), onClick: () => supabase.auth.signOut() }]}
@@ -846,6 +858,7 @@ function Dashboard({ session }) {
                 key={client.id}
                 client={client}
                 products={products}
+                clientAppUrl={clientAppUrl}
                 onUpdate={fetchClients}
                 onRemove={fetchClients}
               />

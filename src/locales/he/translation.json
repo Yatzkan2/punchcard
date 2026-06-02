@@ -1,6 +1,6 @@
 {
   "home": {
-    "welcome": "ברוכות הבאות לסטודיו ניצק",
+    "welcome": "ברוכות הבאות ל{{studio}}",
     "tagline": "המקום שלך לזוז, להתחזק ולהרגיש טוב.",
     "cta": "בדוק את הכרטיסיות שלי"
   },
@@ -21,7 +21,8 @@
     "stat_need_renewal": "זקוקות לחידוש",
     "failed_to_load": "טעינת הלקוחות נכשלה.",
     "nav_clients": "לקוחות",
-    "nav_schedule": "לוח זמנים"
+    "nav_schedule": "לוח זמנים",
+    "nav_settings": "הגדרות"
   },
   "products": {
     "section_title": "מוצרים",
@@ -56,7 +57,7 @@
     "name_invalid": "השם חייב להכיל לפחות אות אחת.",
     "something_wrong": "משהו השתבש.",
     "copy_title": "לחץ להעתקה",
-    "copy_message": "היי {{name}} 👋\nכדי לראות את הכרטיסיות שלך יש להכנס לאתר שלנו: studioNitzk.com\nהקוד שלך הוא:\n{{code}}",
+    "copy_message": "היי {{name}} 👋\nכדי לראות את הכרטיסיות שלך יש להכנס לאתר שלנו: {{url}}\nהקוד שלך הוא:\n{{code}}",
     "copy_message_tooltip": "העתק הודעת ברוכים הבאים",
     "copy_message_label": "קישור הזמנה",
     "remove_title": "הסר לקוח",
@@ -137,6 +138,20 @@
     "cancellation_closed": "הביטול סגור",
     "register_confirm_title": "להירשם לשיעור?",
     "register_confirm_body": "להירשם ל-{{activity}}?"
+  },
+  "settings": {
+    "title": "הגדרות",
+    "save": "שמור",
+    "saving": "שומר…",
+    "saved": "נשמר",
+    "section_general": "כללי",
+    "section_notifications": "התראות",
+    "section_scheduling": "לוח זמנים",
+    "label_studio_name": "שם הסטודיו",
+    "label_client_app_url": "כתובת האפליקציה",
+    "label_admin_email": "אימייל ניהול",
+    "label_cancellation_cutoff_default": "חלון ביטול ברירת מחדל (שעות)",
+    "hint_cancellation_cutoff": "חל על שיעורים חדשים"
   },
   "client_view": {
     "home": "בית",

@@ -4,6 +4,7 @@ import { getProducts } from '../../lib/products'
 import { getClientsWithPass } from '../../lib/passes'
 import { registerClient, unregisterClient } from '../../lib/registrations'
 import { createSlot, updateSlot, deleteSlot } from '../../lib/slots'
+import { getSetting } from '../../lib/settings'
 import Dialog from './Dialog'
 import Spinner from '../shared/Spinner'
 import TrashIcon from '../shared/TrashIcon'
@@ -63,6 +64,16 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
     getProducts()
       .then(setProducts)
       .catch(err => setError(err.message))
+  }, [])
+
+  useEffect(() => {
+    if (isEdit) return
+    getSetting('cancellation_cutoff_default')
+      .then(val => {
+        const n = parseInt(val, 10)
+        if (!isNaN(n)) setCancellationCutoffHours(n)
+      })
+      .catch(() => {})
   }, [])
 
   async function handleSubmit(e) {

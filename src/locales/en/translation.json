@@ -1,6 +1,6 @@
 {
   "home": {
-    "welcome": "Welcome to StudioNitzk",
+    "welcome": "Welcome to {{studio}}",
     "tagline": "Your space to move, strengthen, and feel good.",
     "cta": "Check my passes"
   },
@@ -21,7 +21,8 @@
     "stat_need_renewal": "Need renewal",
     "failed_to_load": "Failed to load clients.",
     "nav_clients": "Clients",
-    "nav_schedule": "Schedule"
+    "nav_schedule": "Schedule",
+    "nav_settings": "Settings"
   },
   "products": {
     "section_title": "Products",
@@ -56,7 +57,7 @@
     "name_invalid": "Name must contain at least one letter.",
     "something_wrong": "Something went wrong.",
     "copy_title": "Click to copy",
-    "copy_message": "Hi {{name}} 👋\nCheck your passes at: studioNitzk.com\nYour Punchcard code is:\n{{code}}",
+    "copy_message": "Hi {{name}} 👋\nCheck your passes at: {{url}}\nYour Punchcard code is:\n{{code}}",
     "copy_message_tooltip": "Copy welcome message",
     "copy_message_label": "invite link",
     "remove_title": "Remove client",
@@ -137,6 +138,20 @@
     "cancellation_closed": "Cancellation closed",
     "register_confirm_title": "Register for class?",
     "register_confirm_body": "Register for {{activity}}?"
+  },
+  "settings": {
+    "title": "Settings",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "section_general": "General",
+    "section_notifications": "Notifications",
+    "section_scheduling": "Scheduling",
+    "label_studio_name": "Studio name",
+    "label_client_app_url": "Client app URL",
+    "label_admin_email": "Admin email",
+    "label_cancellation_cutoff_default": "Default cancellation cutoff (hours)",
+    "hint_cancellation_cutoff": "Applied to new slots by default"
   },
   "client_view": {
     "home": "Home",

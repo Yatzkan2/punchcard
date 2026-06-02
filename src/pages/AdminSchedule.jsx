@@ -7,6 +7,7 @@ import SlotForm from '../components/admin/SlotForm'
 import SlotList from '../components/admin/SlotList'
 import LangToggle from '../components/shared/LangToggle'
 import Topbar from '../components/shared/Topbar'
+import { useSettings } from '../lib/SettingsContext'
 
 function mondayOf(date) {
   const d = new Date(date)
@@ -19,6 +20,7 @@ function mondayOf(date) {
 export default function AdminSchedule() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const settings = useSettings()
 
   const [session,       setSession]       = useState(null)
   const [weekStart,     setWeekStart]     = useState(() => mondayOf(new Date()))
@@ -74,10 +76,11 @@ export default function AdminSchedule() {
     <div className="min-h-screen bg-gray-50">
       <Topbar
         title={t('dashboard.brand')}
-        subtitle={t('dashboard.studio')}
+        subtitle={settings.studio_name || t('dashboard.studio')}
         nav={[
           <Link key="clients" to="/admin" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_clients')}</Link>,
           <span key="schedule" className="text-xs font-medium text-indigo-600">{t('dashboard.nav_schedule')}</span>,
+          <Link key="settings" to="/admin/settings" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_settings')}</Link>,
         ]}
         langToggle={<LangToggle />}
         actions={[{ label: t('auth.sign_out'), onClick: () => supabase.auth.signOut() }]}

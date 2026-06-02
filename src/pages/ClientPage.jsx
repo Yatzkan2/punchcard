@@ -5,6 +5,7 @@ import Spinner from '../components/shared/Spinner'
 import LangToggle from '../components/shared/LangToggle'
 import Topbar from '../components/shared/Topbar'
 import Schedule from '../components/client/Schedule'
+import { useSettings } from '../lib/SettingsContext'
 
 const CODE_LENGTH = 6
 
@@ -39,6 +40,7 @@ const palette = {
 
 function LookupCard({ onFound }) {
   const { t } = useTranslation()
+  const settings = useSettings()
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -80,7 +82,7 @@ function LookupCard({ onFound }) {
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Topbar
         title={t('dashboard.brand')}
-        subtitle={t('dashboard.studio')}
+        subtitle={settings.studio_name || t('dashboard.studio')}
         langToggle={<LangToggle />}
       />
       <div className="flex-1 flex items-center justify-center px-4">

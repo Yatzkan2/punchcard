@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import LangToggle from '../components/shared/LangToggle'
 import Topbar from '../components/shared/Topbar'
+import { useSettings } from '../lib/SettingsContext'
 
 export default function HomePage() {
   const { t } = useTranslation()
+  const settings = useSettings()
   const [visible, setVisible] = useState(0)
 
   useEffect(() => {
@@ -19,12 +21,12 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Topbar
         title={t('dashboard.brand')}
-        subtitle={t('dashboard.studio')}
+        subtitle={settings.studio_name || t('dashboard.studio')}
         langToggle={<LangToggle />}
       />
       <div className="flex-1 flex flex-col items-center justify-center gap-2 relative">
         <h1 className={`text-2xl font-semibold text-gray-900 transition-opacity duration-1000 ${visible >= 1 ? 'opacity-100' : 'opacity-0'}`}>
-          {t('home.welcome')}
+          {t('home.welcome', { studio: settings.studio_name || t('dashboard.studio') })}
         </h1>
         <p className={`text-sm text-gray-500 transition-opacity duration-1000 ${visible >= 2 ? 'opacity-100' : 'opacity-0'}`}>
           {t('home.tagline')}
