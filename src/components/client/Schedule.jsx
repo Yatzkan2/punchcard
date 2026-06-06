@@ -86,7 +86,8 @@ function SlotRow({ slot, clientId, locale, t, onRegister, onUnregister }) {
     try {
       await onRegister(slot.id)
     } catch (err) {
-      setRowError(err.message)
+      console.error(err)
+      setRowError(t('schedule.register_error'))
     } finally {
       setBusy(false)
     }
@@ -98,7 +99,8 @@ function SlotRow({ slot, clientId, locale, t, onRegister, onUnregister }) {
     try {
       await onUnregister(slot.id)
     } catch (err) {
-      setRowError(err.message)
+      console.error(err)
+      setRowError(t('schedule.cancel_error'))
     } finally {
       setBusy(false)
     }

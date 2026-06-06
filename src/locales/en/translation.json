@@ -152,7 +152,9 @@
     "cancel_registration": "Cancel",
     "cancellation_closed": "Cancellation closed",
     "register_confirm_title": "Register for class?",
-    "register_confirm_body": "Register for {{activity}}?"
+    "register_confirm_body": "Register for {{activity}}?",
+    "register_error": "Couldn't register — please try again or contact the studio",
+    "cancel_error": "Couldn't cancel — please try again or contact the studio"
   },
   "activity": {
     "title": "Activity",

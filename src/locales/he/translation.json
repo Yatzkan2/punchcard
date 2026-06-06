@@ -152,7 +152,9 @@
     "cancel_registration": "ביטול רישום",
     "cancellation_closed": "הביטול סגור",
     "register_confirm_title": "להירשם לשיעור?",
-    "register_confirm_body": "להירשם ל-{{activity}}?"
+    "register_confirm_body": "להירשם ל-{{activity}}?",
+    "register_error": "ההרשמה נכשלה — נסו שוב או פנו לסטודיו",
+    "cancel_error": "הביטול נכשל — נסו שוב או פנו לסטודיו"
   },
   "activity": {
     "title": "פעילות",
