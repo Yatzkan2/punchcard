@@ -1,4 +1,5 @@
 import supabase from '../supabase'
+import { logEvent } from './activityLog'
 
 export async function getPassesForClient(clientId) {
   const { data, error } = await supabase
@@ -49,6 +50,30 @@ export async function getClientsWithPass(productId) {
   return data
     .map(p => ({ ...p.clients, remaining: p.remaining }))
     .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export async function punchPass({ clientId, clientName, productId, productName, currentRemaining, slot = null, attended = false }) {
+  const after = Math.max(currentRemaining - 1, 0)
+  await upsertPass(clientId, productId, after)
+  logEvent({
+    eventType: 'pass_punched',
+    actor: 'admin',
+    clientName,
+    metadata: {
+      product_name: productName,
+      before:       currentRemaining,
+      after,
+      attended,
+      slot_id:      slot?.id        ?? null,
+      slot_date:    slot?.date      ?? null,
+      slot_time:    slot?.time      ?? null,
+      activity:     slot?.product_name ?? null,
+    },
+  })
+}
+
+export async function refundPass({ clientId, productId, currentRemaining }) {
+  await upsertPass(clientId, productId, currentRemaining + 1)
 }
 
 export async function removePass(clientId, productId) {

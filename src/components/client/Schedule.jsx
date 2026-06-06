@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getSlotsByWeek, canClientCancel } from '../../lib/slots'
 import { registerClient, unregisterClient } from '../../lib/registrations'
+import { logEvent } from '../../lib/activityLog'
 import WeekNav from '../shared/WeekNav'
 import Spinner from '../shared/Spinner'
 
@@ -172,7 +173,7 @@ function SlotRow({ slot, clientId, locale, t, onRegister, onUnregister }) {
   )
 }
 
-export default function Schedule({ clientId }) {
+export default function Schedule({ clientId, clientName }) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language === 'he' ? 'he-IL' : 'en-GB'
 
@@ -204,11 +205,39 @@ export default function Schedule({ clientId }) {
 
   async function handleRegister(slotId) {
     await registerClient(slotId, clientId)
+    const slot = slots.find(s => s.id === slotId)
+    if (slot) {
+      const d = new Date(slot.starts_at)
+      logEvent({
+        eventType: 'class_registered',
+        actor: 'client',
+        clientName,
+        metadata: {
+          slot_date: d.toLocaleDateString('en-CA'),
+          slot_time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+          activity: slot.products?.name ?? null,
+        },
+      })
+    }
     await load()
   }
 
   async function handleUnregister(slotId) {
     await unregisterClient(slotId, clientId)
+    const slot = slots.find(s => s.id === slotId)
+    if (slot) {
+      const d = new Date(slot.starts_at)
+      logEvent({
+        eventType: 'class_cancelled',
+        actor: 'client',
+        clientName,
+        metadata: {
+          slot_date: d.toLocaleDateString('en-CA'),
+          slot_time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+          activity: slot.products?.name ?? null,
+        },
+      })
+    }
     await load()
   }
 

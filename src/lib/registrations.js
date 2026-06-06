@@ -30,6 +30,25 @@ export async function getRegistrationForClient(slotId, clientId) {
   return data
 }
 
+export async function getRegistrationsForSlot(slotId) {
+  const { data, error } = await supabase
+    .from('slot_registrations')
+    .select('id, client_id, attended, punched, clients(id, name)')
+    .eq('slot_id', slotId)
+    .order('created_at')
+  if (error) throw error
+  return data
+}
+
+export async function setPunched(slotId, clientId, punched) {
+  const { error } = await supabase
+    .from('slot_registrations')
+    .update({ punched })
+    .eq('slot_id', slotId)
+    .eq('client_id', clientId)
+  if (error) throw error
+}
+
 export async function markAttended(slotId, clientId, attended) {
   const { data, error } = await supabase
     .from('slot_registrations')

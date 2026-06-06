@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getProducts } from '../../lib/products'
-import { getClientsWithPass } from '../../lib/passes'
-import { registerClient, unregisterClient } from '../../lib/registrations'
+import { getClientsWithPass, getPassesForClient, punchPass, refundPass } from '../../lib/passes'
+import { registerClient, unregisterClient, markAttended, setPunched } from '../../lib/registrations'
 import { createSlot, updateSlot, deleteSlot } from '../../lib/slots'
 import { getSetting } from '../../lib/settings'
+import { logEvent } from '../../lib/activityLog'
 import Dialog from './Dialog'
 import Spinner from '../shared/Spinner'
 import TrashIcon from '../shared/TrashIcon'
 
-const INPUT = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white'
+const INPUT = 'w-full min-w-0 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white'
 const LABEL = 'block text-xs font-medium text-gray-500 mb-1'
 
 function today() {
@@ -54,11 +55,38 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
   const [pendingUnregister, setPendingUnregister] = useState(null) // { clientId, registrationId, name }
 
   // Registration state (edit mode only)
-  const [registrations,    setRegistrations]    = useState(slot?.slot_registrations ?? [])
-  const [eligibleClients,  setEligibleClients]  = useState(null)
-  const [loadingClients,   setLoadingClients]   = useState(false)
-  const [regBusy,          setRegBusy]          = useState({})
-  const [regError,         setRegError]         = useState('')
+  const [registrations,     setRegistrations]     = useState(slot?.slot_registrations ?? [])
+  const [eligibleClients,   setEligibleClients]   = useState(null)
+  const [loadingClients,    setLoadingClients]    = useState(false)
+  const [regBusy,           setRegBusy]           = useState({})
+  const [regError,          setRegError]          = useState('')
+  const [attendanceBusy,    setAttendanceBusy]    = useState({})
+  const [committing,        setCommitting]        = useState(false)
+  const [activeTab,         setActiveTab]         = useState('details')
+  const [attendanceDraft,   setAttendanceDraft]   = useState(() => {
+    const draft = {}
+    for (const r of slot?.slot_registrations ?? []) {
+      draft[r.id] = {
+        status:      r.attended === true ? 'attended' : r.attended === false ? 'absent' : null,
+        punchAnyway: false,
+      }
+    }
+    return draft
+  })
+
+  function setDraft(regId, partial) {
+    setAttendanceDraft(prev => ({ ...prev, [regId]: { ...prev[regId], ...partial } }))
+  }
+
+  const slotRef = isEdit ? (() => {
+    const d = new Date(slot.starts_at)
+    return {
+      id:           slot.id,
+      date:         d.toLocaleDateString('en-CA'),
+      time:         `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+      product_name: slot.products?.name ?? null,
+    }
+  })() : null
 
   useEffect(() => {
     getProducts()
@@ -114,6 +142,8 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
     setDeleting(true)
     try {
       await deleteSlot(slot.id)
+      const d = new Date(slot.starts_at)
+      logEvent({ eventType: 'slot_deleted', actor: 'admin', metadata: { slot_date: d.toLocaleDateString('en-CA'), slot_time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` } })
       onDeleted?.()
     } catch (err) {
       setError(err.message)
@@ -170,6 +200,66 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
     }
   }
 
+  async function commitAttendance() {
+    const changes = []
+    for (const r of registrations) {
+      if (!r.clients) continue
+      const draft    = attendanceDraft[r.id] ?? { status: null, punchAnyway: false }
+      const original = r.attended
+      const { id: regId, clients: { id: clientId, name: clientName } } = r
+
+      if (draft.status === 'attended' && original !== true) {
+        changes.push({ regId, clientId, clientName, action: 'attend', punched: r.punched ?? false })
+      } else if (draft.status === 'absent' && original !== false) {
+        changes.push({ regId, clientId, clientName, action: 'absent', punchAnyway: draft.punchAnyway, punched: r.punched ?? false })
+      }
+    }
+    if (!changes.length) return
+
+    setCommitting(true)
+    setRegError('')
+    const newlyPunchedIds = new Set()
+    try {
+      for (const change of changes) {
+        const { regId, clientId, clientName, action, punchAnyway, punched } = change
+        if (action === 'attend') {
+          await markAttended(slot.id, clientId, true)
+          if (!punched) {
+            const passes = await getPassesForClient(clientId)
+            const pass   = passes.find(p => p.product_id === slot.product_id)
+            if (pass) {
+              await punchPass({ clientId, clientName, productId: slot.product_id, productName: slot.products?.name, currentRemaining: pass.remaining, slot: slotRef, attended: true })
+              await setPunched(slot.id, clientId, true)
+              newlyPunchedIds.add(regId)
+            }
+          }
+        } else {
+          await markAttended(slot.id, clientId, false)
+          if (punchAnyway && !punched) {
+            const passes = await getPassesForClient(clientId)
+            const pass   = passes.find(p => p.product_id === slot.product_id)
+            if (pass) {
+              await punchPass({ clientId, clientName, productId: slot.product_id, productName: slot.products?.name, currentRemaining: pass.remaining, slot: slotRef, attended: false })
+              await setPunched(slot.id, clientId, true)
+              newlyPunchedIds.add(regId)
+            }
+          }
+        }
+      }
+      const attendedMap = Object.fromEntries(
+        changes.map(c => [c.regId, c.action === 'attend'])
+      )
+      setRegistrations(prev => prev.map(r => {
+        if (!(r.id in attendedMap)) return r
+        return { ...r, attended: attendedMap[r.id], punched: newlyPunchedIds.has(r.id) ? true : r.punched }
+      }))
+    } catch (err) {
+      setRegError(err.message)
+    } finally {
+      setCommitting(false)
+    }
+  }
+
   return (
     <>
     {pendingUnregister && (
@@ -201,8 +291,8 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
       </Dialog>
     )}
 
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-      <div className="flex items-center justify-between">
+    <form onSubmit={handleSubmit} className={`bg-white rounded-xl border border-gray-200 p-4 min-w-0 ${isEdit ? 'h-[32rem] flex flex-col' : 'space-y-3'}`}>
+      <div className="flex items-center justify-between shrink-0">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
           {isEdit ? t('schedule.edit_slot') : t('schedule.new_slot')}
         </p>
@@ -226,106 +316,198 @@ export default function SlotForm({ slot, onCreated, onSaved, onCancel, onDeleted
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="min-w-0">
-          <label className={LABEL}>{t('schedule.label_date')}</label>
-          <input type="date" dir="ltr" value={date} onChange={e => setDate(e.target.value)} required className={INPUT} />
+      {isEdit && (
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 shrink-0 mt-3">
+          <button
+            type="button"
+            onClick={() => setActiveTab('details')}
+            className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${activeTab === 'details' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            {t('schedule.tab_details')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('attendance')}
+            className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${activeTab === 'attendance' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            {t('schedule.tab_attendance')}
+          </button>
         </div>
-        <div className="min-w-0">
-          <label className={LABEL}>{t('schedule.label_time')}</label>
-          <input type="time" dir="ltr" value={time} onChange={e => setTime(e.target.value)} required className={INPUT} />
+      )}
+
+      {(!isEdit || activeTab === 'details') && (
+        <div className={isEdit ? 'flex-1 overflow-y-auto overflow-x-hidden min-h-0 min-w-0 mt-3' : ''}>
+        <div className="space-y-3 min-w-0">
+          <div className="flex flex-col gap-3 min-w-0">
+            <div className="min-w-0">
+              <label className={LABEL}>{t('schedule.label_date')}</label>
+              <input type="date" dir="ltr" value={date} onChange={e => setDate(e.target.value)} required className={`${INPUT} box-border`} style={{ maxWidth: '100%' }} />
+            </div>
+            <div className="min-w-0">
+              <label className={LABEL}>{t('schedule.label_time')}</label>
+              <input type="time" dir="ltr" value={time} onChange={e => setTime(e.target.value)} required className={`${INPUT} box-border`} style={{ maxWidth: '100%' }} />
+            </div>
+          </div>
+
+          <div>
+            <label className={LABEL}>{t('schedule.label_activity')}</label>
+            <select value={productId} onChange={e => setProductId(e.target.value)} className={INPUT}>
+              <option value="">{t('schedule.activity_none')}</option>
+              {products.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className={LABEL}>{t('schedule.label_capacity')}</label>
+            <input
+              type="number" min={1} max={999} value={capacity}
+              onChange={e => setCapacity(e.target.value)} required className={INPUT}
+            />
+          </div>
+
+          <div>
+            <label className={LABEL}>{t('schedule.cancellation_cutoff_label')}</label>
+            <input
+              type="number" min={0} value={cancellationCutoffHours}
+              onChange={e => setCancellationCutoffHours(e.target.value)} required className={INPUT}
+            />
+            <p className="text-xs text-gray-400 mt-1">{t('schedule.cancellation_cutoff_hint')}</p>
+          </div>
+
+          <div>
+            <label className={LABEL}>{t('schedule.label_notes')} <span className="font-normal text-gray-400">{t('schedule.optional')}</span></label>
+            <textarea
+              value={notes} onChange={e => setNotes(e.target.value)}
+              rows={2} placeholder={t('schedule.notes_placeholder')} className={`${INPUT} resize-none`}
+            />
+          </div>
+
+          {isEdit && slot.product_id && (
+            <div>
+              <label className={LABEL}>{t('schedule.participants')} <span className="font-normal text-gray-400 ms-1">{registrations.length}/{capacity}</span></label>
+              {registrations.map(r => r.clients && (
+                <div key={r.id} className="flex items-center gap-2 mt-1">
+                  <span className="flex-1 text-xs truncate text-gray-700">{r.clients.name}</span>
+                  <button type="button" onClick={() => setPendingUnregister({ clientId: r.clients.id, registrationId: r.id, name: r.clients.name })} className="shrink-0 text-gray-300 hover:text-red-500 transition-colors leading-none" aria-label="Remove">×</button>
+                </div>
+              ))}
+              {!full && (
+                <select
+                  defaultValue=""
+                  onFocus={fetchEligible}
+                  onChange={e => { if (e.target.value) { handleRegister(e.target.value); e.target.value = '' } }}
+                  disabled={loadingClients}
+                  className="mt-1 text-xs text-indigo-500 bg-transparent border border-dashed border-indigo-200 rounded-full px-2 py-0.5 outline-none cursor-pointer hover:border-indigo-400 transition-colors disabled:opacity-50"
+                >
+                  <option value="">{loadingClients ? t('schedule.loading') : t('schedule.add_client')}</option>
+                  {unregisteredClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              )}
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
+
+          <button
+            type="submit" disabled={saving}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {saving && <Spinner className="w-4 h-4" />}
+            {saving ? (isEdit ? t('schedule.saving') : t('schedule.creating')) : (isEdit ? t('schedule.save') : t('schedule.create'))}
+          </button>
         </div>
-      </div>
+        </div>
+      )}
 
-      <div>
-        <label className={LABEL}>{t('schedule.label_activity')}</label>
-        <select value={productId} onChange={e => setProductId(e.target.value)} className={INPUT}>
-          <option value="">{t('schedule.activity_none')}</option>
-          {products.map(p => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className={LABEL}>{t('schedule.label_capacity')}</label>
-        <input
-          type="number" min={1} max={999} value={capacity}
-          onChange={e => setCapacity(e.target.value)} required className={INPUT}
-        />
-      </div>
-
-      <div>
-        <label className={LABEL}>{t('schedule.cancellation_cutoff_label')}</label>
-        <input
-          type="number" min={0} value={cancellationCutoffHours}
-          onChange={e => setCancellationCutoffHours(e.target.value)} required className={INPUT}
-        />
-        <p className="text-xs text-gray-400 mt-1">{t('schedule.cancellation_cutoff_hint')}</p>
-      </div>
-
-      <div>
-        <label className={LABEL}>{t('schedule.label_notes')} <span className="font-normal text-gray-400">{t('schedule.optional')}</span></label>
-        <textarea
-          value={notes} onChange={e => setNotes(e.target.value)}
-          rows={2} placeholder={t('schedule.notes_placeholder')} className={`${INPUT} resize-none`}
-        />
-      </div>
-
-      {/* Participants — edit mode only */}
-      {isEdit && slot.product_id && (
-        <div>
+      {/* Participants — attendance tab, edit mode only */}
+      {isEdit && activeTab === 'attendance' && slot.product_id && (
+        <div className="flex-1 flex flex-col min-h-0 min-w-0 mt-3">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 min-w-0">
           <label className={LABEL}>
             {t('schedule.participants')}
             <span className="font-normal text-gray-400 ms-1">{registrations.length}/{capacity}</span>
           </label>
-          <div className="flex flex-wrap items-center gap-1.5 mt-1">
-            {registrations.map(r => r.clients && (
-              <span key={r.id} className="inline-flex items-center gap-1 text-xs bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100 rounded-full px-2 py-0.5">
-                {r.clients.name}
-                {regBusy[r.clients.id] ? (
-                  <Spinner className="w-3 h-3" />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setPendingUnregister({ clientId: r.clients.id, registrationId: r.id, name: r.clients.name })}
-                    className="text-indigo-300 hover:text-red-500 transition-colors leading-none ml-0.5"
-                    aria-label="Remove"
-                  >×</button>
-                )}
-              </span>
-            ))}
+          <div className="space-y-1 mt-1">
+            {registrations.map(r => r.clients && (() => {
+              const draft  = attendanceDraft[r.id] ?? { status: null, punchAnyway: false }
+              const status = draft.status
+              return (
+                <div key={r.id}>
+                  <div className="flex items-center gap-2">
+                    {/* Name */}
+                    <span className="flex-1 text-xs truncate text-gray-700">{r.clients.name}</span>
 
-            {!full && (
-              <select
-                defaultValue=""
-                onFocus={fetchEligible}
-                onChange={e => { if (e.target.value) { handleRegister(e.target.value); e.target.value = '' } }}
-                disabled={loadingClients}
-                className="text-xs text-indigo-500 bg-transparent border border-dashed border-indigo-200 rounded-full px-2 py-0.5 outline-none cursor-pointer hover:border-indigo-400 transition-colors disabled:opacity-50"
-              >
-                <option value="">{loadingClients ? t('schedule.loading') : t('schedule.add_client')}</option>
-                {unregisteredClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            )}
+                    {/* Attended button */}
+                    <button
+                      type="button"
+                      onClick={() => setDraft(r.id, { status: 'attended' })}
+                      disabled={attendanceBusy[r.clients.id] || regBusy[r.clients.id]}
+                      className={`shrink-0 text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                        status === 'attended'
+                          ? 'bg-green-100 text-green-700 border-green-300'
+                          : 'text-gray-400 border-gray-200 hover:border-gray-300 hover:text-gray-600'
+                      }`}
+                    >
+                      {t('schedule.attended')}
+                    </button>
+
+                    {/* Not attended button */}
+                    <button
+                      type="button"
+                      onClick={() => setDraft(r.id, { status: 'absent' })}
+                      disabled={attendanceBusy[r.clients.id] || regBusy[r.clients.id]}
+                      className={`shrink-0 text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                        status === 'absent'
+                          ? 'bg-red-50 text-red-600 border-red-200'
+                          : 'text-gray-400 border-gray-200 hover:border-gray-300 hover:text-gray-600'
+                      }`}
+                    >
+                      {t('schedule.not_attended')}
+                    </button>
+
+                    {(attendanceBusy[r.clients.id] || regBusy[r.clients.id]) && (
+                      <Spinner className="w-3 h-3 shrink-0" />
+                    )}
+                  </div>
+
+                  {/* Punch anyway checkbox — shown when absent */}
+                  {status === 'absent' && (
+                    <label className="flex items-center gap-1.5 mt-0.5 ltr:pl-0 rtl:pr-0 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={draft.punchAnyway}
+                        onChange={e => setDraft(r.id, { punchAnyway: e.target.checked })}
+                        className="w-3 h-3 accent-indigo-600"
+                      />
+                      <span className="text-xs text-gray-400">{t('schedule.punch_anyway_label')}</span>
+                    </label>
+                  )}
+                </div>
+              )
+            })())}
+
+
           </div>
           {regError && <p className="text-xs text-red-500 mt-1">{regError}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={commitAttendance}
+            disabled={committing}
+            className="shrink-0 mt-3 w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {committing && <Spinner className="w-4 h-4" />}
+            {t('schedule.confirm_attendance')}
+          </button>
         </div>
       )}
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
-          <p className="text-sm text-red-700">{error}</p>
-        </div>
-      )}
-
-      <button
-        type="submit" disabled={saving}
-        className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
-        {saving && <Spinner className="w-4 h-4" />}
-        {saving ? (isEdit ? t('schedule.saving') : t('schedule.creating')) : (isEdit ? t('schedule.save') : t('schedule.create'))}
-      </button>
     </form>
     </>
   )

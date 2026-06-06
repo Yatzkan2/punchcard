@@ -8,7 +8,7 @@ export async function getSlotsByWeek(startDate) {
 
   const { data, error } = await supabase
     .from('slots')
-    .select('*, products!slots_product_id_fkey(id, name), slot_registrations(id, attended, clients(id, name))')
+    .select('*, products!slots_product_id_fkey(id, name), slot_registrations(id, attended, punched, clients(id, name))')
     .gte('starts_at', start.toISOString())
     .lt('starts_at', end.toISOString())
     .order('starts_at')
@@ -62,10 +62,25 @@ export function canClientCancel(slot) {
   return new Date() < cutoff
 }
 
+export async function getRegisteredSlotsForClient(clientId, productId) {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+  const { data, error } = await supabase
+    .from('slots')
+    .select('id, starts_at, products!slots_product_id_fkey(id, name), slot_registrations!inner(client_id)')
+    .eq('product_id', productId)
+    .eq('slot_registrations.client_id', clientId)
+    .gte('starts_at', since)
+    .lte('starts_at', until)
+    .order('starts_at')
+  if (error) throw error
+  return data
+}
+
 export async function getSlotWithRegistrations(id) {
   const { data, error } = await supabase
     .from('slots')
-    .select('*, products!slots_product_id_fkey(id, name), slot_registrations(id, attended, clients(id, name))')
+    .select('*, products!slots_product_id_fkey(id, name), slot_registrations(id, attended, punched, clients(id, name))')
     .eq('id', id)
     .single()
   if (error) throw error

@@ -4,10 +4,11 @@ import { useTranslation, Trans } from 'react-i18next'
 import supabase from '../supabase'
 import { getAllClients, addClient as addClientFn, removeClient, incrementEntries } from '../lib/clients'
 import { getProducts, addProduct, removeProduct } from '../lib/products'
-import { upsertPass, removePass, getClientNamesForProduct } from '../lib/passes'
-import { getSlotCountForProduct } from '../lib/slots'
+import { upsertPass, removePass, getClientNamesForProduct, punchPass } from '../lib/passes'
+import { getSlotCountForProduct, getRegisteredSlotsForClient } from '../lib/slots'
 import { getSetting } from '../lib/settings'
 import { useSettings } from '../lib/SettingsContext'
+import { logEvent } from '../lib/activityLog'
 import { Link } from 'react-router-dom'
 import Dialog from '../components/admin/Dialog'
 import Spinner from '../components/shared/Spinner'
@@ -107,6 +108,9 @@ function ClientRow({ client, products, clientAppUrl, onUpdate, onRemove }) {
   const [addCount, setAddCount]           = useState(10)
   const [addingPass, setAddingPass]       = useState(false)
   const [passListRef] = useAutoAnimate()
+  const [registeredSlots, setRegisteredSlots] = useState(null)
+  const [loadingSlots,    setLoadingSlots]    = useState(false)
+  const [selectedSlotId,  setSelectedSlotId]  = useState('none')
 
   const assignedIds     = new Set(client.passes.map(p => p.product_id))
   const availableForAdd = products.filter(p => !assignedIds.has(p.id))
@@ -155,13 +159,33 @@ function ClientRow({ client, products, clientAppUrl, onUpdate, onRemove }) {
     setTimeout(() => setCopiedMessage(false), 1500)
   }
 
+  useEffect(() => {
+    if (dialog?.type !== 'punch') return
+    setRegisteredSlots(null)
+    setSelectedSlotId('none')
+    setLoadingSlots(true)
+    getRegisteredSlotsForClient(client.id, dialog.pass.product_id)
+      .then(setRegisteredSlots)
+      .catch(() => setRegisteredSlots([]))
+      .finally(() => setLoadingSlots(false))
+  }, [dialog?.type, dialog?.pass?.product_id])
+
   // ── Punch ────────────────────────────────────────────────────────────────────
   async function confirmPunch() {
     const pass = dialog.pass
+    const linkedSlot = selectedSlotId !== 'none'
+      ? registeredSlots?.find(s => s.id === selectedSlotId)
+      : null
+    const slotArg = linkedSlot ? {
+      id:           linkedSlot.id,
+      date:         new Date(linkedSlot.starts_at).toLocaleDateString('en-CA'),
+      time:         `${String(new Date(linkedSlot.starts_at).getHours()).padStart(2, '0')}:${String(new Date(linkedSlot.starts_at).getMinutes()).padStart(2, '0')}`,
+      product_name: linkedSlot.products?.name ?? null,
+    } : null
     setDialog(null)
     setBusy(true)
     try {
-      await upsertPass(client.id, pass.product_id, Math.max(pass.remaining - 1, 0))
+      await punchPass({ clientId: client.id, clientName: client.name, productId: pass.product_id, productName: pass.product_name, currentRemaining: pass.remaining, slot: slotArg, attended: false })
       await incrementEntries(client.id, entries)
       onUpdate()
     } catch (e) { showError(e) }
@@ -173,7 +197,7 @@ function ClientRow({ client, products, clientAppUrl, onUpdate, onRemove }) {
     const pass = dialog.pass
     setDialog(null)
     setBusy(true)
-    try { await upsertPass(client.id, pass.product_id, 10); onUpdate() } catch (e) { showError(e) }
+    try { await upsertPass(client.id, pass.product_id, 10); logEvent({ eventType: 'pass_refilled', actor: 'admin', clientName: client.name, metadata: { product_name: pass.product_name, before: pass.remaining, after: 10 } }); onUpdate() } catch (e) { showError(e) }
     setBusy(false)
   }
 
@@ -203,7 +227,7 @@ function ClientRow({ client, products, clientAppUrl, onUpdate, onRemove }) {
   // ── Remove client ────────────────────────────────────────────────────────────
   async function confirmRemoveClient() {
     setDialog(null)
-    try { await removeClient(client.id); onRemove() } catch (e) { showError(e) }
+    try { await removeClient(client.id); logEvent({ eventType: 'client_removed', actor: 'admin', clientName: client.name }); onRemove() } catch (e) { showError(e) }
   }
 
   // ── Add product pass ─────────────────────────────────────────────────────────
@@ -418,6 +442,27 @@ function ClientRow({ client, products, clientAppUrl, onUpdate, onRemove }) {
               <p className="text-xs text-gray-400 mt-1">{t('passes.punch_after')}</p>
             </div>
           </div>
+          {(loadingSlots || (registeredSlots && registeredSlots.length > 0)) && (
+            <div className="mt-4">
+              <p className="text-xs font-medium text-gray-500 mb-1.5">{t('passes.link_to_class')}</p>
+              {loadingSlots ? (
+                <p className="text-xs text-gray-400">{t('passes.link_loading')}</p>
+              ) : (
+                <select
+                  value={selectedSlotId}
+                  onChange={e => setSelectedSlotId(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                >
+                  <option value="none">{t('passes.link_no_class')}</option>
+                  {registeredSlots.map(s => {
+                    const d = new Date(s.starts_at)
+                    const label = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(d)
+                    return <option key={s.id} value={s.id}>{label}</option>
+                  })}
+                </select>
+              )}
+            </div>
+          )}
         </Dialog>
       )}
 
@@ -722,7 +767,8 @@ function Dashboard({ session }) {
         nav={[
           <span key="clients" className="text-xs font-medium text-indigo-600">{t('dashboard.nav_clients')}</span>,
           <Link key="schedule" to="/admin/schedule" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_schedule')}</Link>,
-          <Link key="settings" to="/admin/settings" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_settings')}</Link>,
+          <Link key="settings"  to="/admin/settings"  className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_settings')}</Link>,
+          <Link key="activity" to="/admin/activity" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_activity')}</Link>,
         ]}
         langToggle={<LangToggle />}
         actions={[{ label: t('auth.sign_out'), onClick: () => supabase.auth.signOut() }]}

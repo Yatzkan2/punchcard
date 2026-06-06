@@ -79,7 +79,8 @@ export default function AdminSchedule() {
         nav={[
           <Link key="clients" to="/admin" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_clients')}</Link>,
           <span key="schedule" className="text-xs font-medium text-indigo-600">{t('dashboard.nav_schedule')}</span>,
-          <Link key="settings" to="/admin/settings" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_settings')}</Link>,
+          <Link key="settings"  to="/admin/settings"  className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_settings')}</Link>,
+          <Link key="activity" to="/admin/activity" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">{t('dashboard.nav_activity')}</Link>,
         ]}
         langToggle={<LangToggle />}
         actions={[{ label: t('auth.sign_out'), onClick: () => supabase.auth.signOut() }]}

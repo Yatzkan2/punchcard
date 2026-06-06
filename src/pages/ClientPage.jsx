@@ -6,6 +6,7 @@ import LangToggle from '../components/shared/LangToggle'
 import Topbar from '../components/shared/Topbar'
 import Schedule from '../components/client/Schedule'
 import { useSettings } from '../lib/SettingsContext'
+import { logEvent } from '../lib/activityLog'
 
 const CODE_LENGTH = 6
 
@@ -261,7 +262,7 @@ function ResultCard({ client, onBack }) {
               )}
             </div>
           ) : (
-            <Schedule clientId={client.id} />
+            <Schedule clientId={client.id} clientName={client.name} />
           )}
         </div>
 
@@ -291,6 +292,7 @@ export default function ClientPage() {
         }
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ code, lastSeen: Date.now() }))
         const result = await getClientByCode(code)
+        logEvent({ eventType: 'client_login', actor: 'client', clientName: result.name })
         setClient(result)
       } catch {
         localStorage.removeItem(STORAGE_KEY)
@@ -303,6 +305,7 @@ export default function ClientPage() {
 
   function handleFound(result) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ code: result.code, lastSeen: Date.now() }))
+    logEvent({ eventType: 'client_login', actor: 'client', clientName: result.name })
     setClient(result)
   }
 
