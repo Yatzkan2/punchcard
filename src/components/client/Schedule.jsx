@@ -190,7 +190,8 @@ export default function Schedule({ clientId, clientName }) {
     try {
       setSlots(await getSlotsByWeek(weekStart))
     } catch (err) {
-      setError(err.message)
+      console.error(err)
+      setError(t('schedule.load_error'))
     } finally {
       setLoading(false)
     }
