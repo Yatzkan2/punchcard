@@ -44,6 +44,9 @@ function RegisterConfirmDialog({ slot, t, onConfirm, onCancel }) {
         <p className="text-sm text-gray-500">
           {t('schedule.register_confirm_body', { activity: slot.products?.name ?? '—' })}
         </p>
+        {!canClientCancel(slot) && (
+          <p className="text-xs text-amber-600">{t('schedule.no_cancel_warning', { hours: slot.cancellation_cutoff_hours })}</p>
+        )}
         <div className="flex gap-2 justify-end">
           <button
             onClick={onCancel}
