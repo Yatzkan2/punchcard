@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { Link } from 'react-router-dom'
-import { isValidElement } from 'react'
+import { isValidElement, cloneElement } from 'react'
 
 // langToggle: ReactNode — always visible on both mobile and desktop, never in dropdown
 // nav:        array of ReactNode — inline on desktop, first items in mobile dropdown
@@ -26,7 +26,7 @@ export default function Topbar({ title, subtitle, nav = [], actions = [], langTo
     <header className="bg-white border-b border-gray-200 px-4 h-14 flex items-center justify-between">
       {/* Left: home + title + subtitle + nav (desktop only) */}
       <div className="flex items-center gap-3 min-w-0">
-        <Link to="/" className="text-gray-300 hover:text-gray-500 transition-colors shrink-0">
+        <Link to="/" className="text-gray-300 hover:text-gray-500 active:scale-95 transition-all duration-150 shrink-0">
           <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
             <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 8h1v5.5A1.5 1.5 0 0 0 4 15h2.5v-3.5h3V15H12a1.5 1.5 0 0 0 1.5-1.5V8h1a.5.5 0 0 0 .354-.854l-6-6Z"/>
           </svg>
@@ -53,7 +53,7 @@ export default function Topbar({ title, subtitle, nav = [], actions = [], langTo
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setOpen(v => !v)}
-              className="p-2 -mr-1 text-gray-500 hover:text-gray-700 transition-colors"
+              className="p-2 -mr-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 active:scale-90 rounded transition-all duration-150"
               aria-label="Menu"
             >
               {open ? (
@@ -86,7 +86,7 @@ function renderInline(action, i) {
     <button
       key={i}
       onClick={action.onClick}
-      className="text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
+      className="text-xs font-medium text-gray-500 hover:text-gray-900 active:scale-95 transition-all duration-150"
     >
       {action.label}
     </button>
@@ -95,17 +95,18 @@ function renderInline(action, i) {
 
 function renderDropdown(action, i, close) {
   if (isValidElement(action)) {
-    return (
-      <div key={i} className="px-4 py-2.5 border-b border-gray-100 last:border-0">
-        {action}
-      </div>
-    )
+    const existing = action.props.className ?? ''
+    return cloneElement(action, {
+      key: i,
+      className: `block w-full text-start px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors duration-150 border-b border-gray-100 last:border-0${existing ? ' ' + existing : ''}`,
+      onClick: close,
+    })
   }
   return (
     <button
       key={i}
       onClick={() => { action.onClick(); close() }}
-      className="w-full text-start px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
+      className="w-full text-start px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors duration-150 border-b border-gray-100 last:border-0"
     >
       {action.label}
     </button>
